@@ -110,6 +110,7 @@ func (a *App) Handler() http.Handler {
 			return
 		}
 		jsonResponse(w, 201, target)
+		a.scheduler.Notify()
 	})
 	mux.HandleFunc("PUT /api/targets/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id, err := targetID(r)
@@ -128,6 +129,7 @@ func (a *App) Handler() http.Handler {
 			return
 		}
 		jsonResponse(w, 200, target)
+		a.scheduler.Notify()
 	})
 	mux.HandleFunc("DELETE /api/targets/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id, err := targetID(r)
@@ -140,6 +142,7 @@ func (a *App) Handler() http.Handler {
 			return
 		}
 		w.WriteHeader(204)
+		a.scheduler.Notify()
 	})
 	mux.HandleFunc("POST /api/targets/{id}/check", func(w http.ResponseWriter, r *http.Request) {
 		id, err := targetID(r)

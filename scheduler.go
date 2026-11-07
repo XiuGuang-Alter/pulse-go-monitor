@@ -21,6 +21,11 @@ type Scheduler struct {
 	running           map[int64]bool
 	started, stopping bool
 	wg                sync.WaitGroup
+	pollInterval      time.Duration
+	wake              chan struct{}
+	retryAt           map[int64]time.Time
+	readRetryAt       time.Time
+	ready             chan struct{}
 }
 
 func NewScheduler(store *Store, concurrency int, checker Checker) (*Scheduler, error) {
@@ -31,7 +36,13 @@ func NewScheduler(store *Store, concurrency int, checker Checker) (*Scheduler, e
 		checker = Check
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Scheduler{store: store, checker: checker, ctx: ctx, cancel: cancel, slots: make(chan struct{}, concurrency), running: map[int64]bool{}}, nil
+	return &Scheduler{store: store, checker: checker, ctx: ctx, cancel: cancel, slots: make(chan struct{}, concurrency), running: map[int64]bool{}, pollInterval: 250 * time.Millisecond, wake: make(chan struct{}, 1), retryAt: map[int64]time.Time{}, ready: make(chan struct{})}, nil
+}
+func (s *Scheduler) Notify() {
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
 }
 func (s *Scheduler) Start() {
 	s.mu.Lock()
@@ -43,29 +54,58 @@ func (s *Scheduler) Start() {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		ticker := time.NewTicker(250 * time.Millisecond)
-		defer ticker.Stop()
+		var ticks <-chan time.Time
+		if s.pollInterval > 0 {
+			ticker := time.NewTicker(s.pollInterval)
+			defer ticker.Stop()
+			ticks = ticker.C
+		}
+		first := true
 		for {
 			s.scheduleDue()
+			if first {
+				close(s.ready)
+				first = false
+			}
 			select {
 			case <-s.ctx.Done():
 				return
-			case <-ticker.C:
+			case <-ticks:
+			case <-s.wake:
 			}
 		}
 	}()
 }
 func (s *Scheduler) scheduleDue() {
+	s.mu.Lock()
+	retry := s.readRetryAt
+	stopped := s.stopping
+	s.mu.Unlock()
+	if stopped || time.Now().Before(retry) {
+		return
+	}
 	targets, err := s.store.DueTargets(s.ctx)
 	if err != nil {
 		if s.ctx.Err() == nil {
 			log.Printf("读取到期目标失败: %v", err)
+			s.mu.Lock()
+			s.readRetryAt = time.Now().Add(time.Second)
+			s.mu.Unlock()
 		}
 		return
 	}
 	for _, target := range targets {
 		// 再读配置，避免在查到到期目标后，用户恰好暂停或修改它。
 		current, err := s.store.GetTarget(s.ctx, target.ID)
+		if err != nil {
+			if !errors.Is(err, ErrNotFound) && s.ctx.Err() == nil {
+				s.mu.Lock()
+				s.readRetryAt = time.Now().Add(time.Second)
+				s.mu.Unlock()
+				return
+			}
+			continue
+		}
 		if err != nil || !current.Enabled || current.NextCheckAt > time.Now().UnixMilli() {
 			continue
 		}
@@ -94,6 +134,9 @@ func (s *Scheduler) launch(target Target) error {
 	if s.running[target.ID] {
 		return ErrBusy
 	}
+	if time.Now().Before(s.retryAt[target.ID]) {
+		return ErrBusy
+	}
 	select {
 	case s.slots <- struct{}{}:
 	default:
@@ -103,7 +146,7 @@ func (s *Scheduler) launch(target Target) error {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		defer func() { s.mu.Lock(); delete(s.running, target.ID); <-s.slots; s.mu.Unlock() }()
+		defer func() { s.mu.Lock(); delete(s.running, target.ID); <-s.slots; s.mu.Unlock(); s.Notify() }()
 		checkedAt := time.Now()
 		result := s.checker(s.ctx, target.URL, time.Duration(target.TimeoutSeconds)*time.Second)
 		if s.ctx.Err() != nil {
@@ -111,6 +154,13 @@ func (s *Scheduler) launch(target Target) error {
 		}
 		if err := s.store.RecordCheck(s.ctx, target, result, checkedAt); err != nil && !errors.Is(err, ErrNotFound) && s.ctx.Err() == nil {
 			log.Printf("保存目标 %d 结果失败: %v", target.ID, err)
+			s.mu.Lock()
+			s.retryAt[target.ID] = time.Now().Add(time.Second)
+			s.mu.Unlock()
+		} else {
+			s.mu.Lock()
+			delete(s.retryAt, target.ID)
+			s.mu.Unlock()
 		}
 	}()
 	return nil
