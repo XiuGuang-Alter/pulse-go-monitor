@@ -34,13 +34,14 @@ type SampleStats struct {
 }
 type Target struct {
 	TargetInput
-	ID          int64        `json:"id"`
-	CreatedAt   int64        `json:"created_at"`
-	NextCheckAt int64        `json:"next_check_at"`
-	Version     int64        `json:"-"`
-	Latest      *CheckRecord `json:"latest"`
-	Stats       SampleStats  `json:"stats"`
-	Running     bool         `json:"running"`
+	ID             int64        `json:"id"`
+	CreatedAt      int64        `json:"created_at"`
+	NextCheckAt    int64        `json:"next_check_at"`
+	Version        int64        `json:"-"`
+	Latest         *CheckRecord `json:"latest"`
+	Stats          SampleStats  `json:"stats"`
+	Running        bool         `json:"running"`
+	RuleValuesJSON []string     `json:"rule_values_json,omitempty"`
 }
 type CheckRecord struct {
 	ID              int64           `json:"id"`

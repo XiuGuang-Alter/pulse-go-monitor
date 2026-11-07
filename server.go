@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -84,7 +85,9 @@ func (a *App) Handler() http.Handler {
 			apiError(w, err)
 			return
 		}
-		jsonResponse(w, 200, map[string]any{"status": "ok", "started_at": a.startedAt.UnixMilli(), "server_time": time.Now().UnixMilli(), "running": len(a.scheduler.RunningIDs()), "concurrency": cap(a.scheduler.slots)})
+		var memory runtime.MemStats
+		runtime.ReadMemStats(&memory)
+		jsonResponse(w, 200, map[string]any{"status": "ok", "started_at": a.startedAt.UnixMilli(), "server_time": time.Now().UnixMilli(), "running": len(a.scheduler.RunningIDs()), "concurrency": cap(a.scheduler.slots), "heap_alloc_bytes": memory.HeapAlloc, "goroutines": runtime.NumGoroutine()})
 	})
 	mux.HandleFunc("GET /api/targets", func(w http.ResponseWriter, r *http.Request) {
 		targets, err := a.store.ListTargets(r.Context())

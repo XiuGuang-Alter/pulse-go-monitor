@@ -65,6 +65,19 @@ func TestRulesPersistenceAndOldPUT(t *testing.T) {
 		t.Fatal("16KiB request compatibility", w.Code, w.Body.String())
 	}
 }
+
+func TestRulesExactValueForEditing(t *testing.T) {
+	s := testStore(t)
+	in := inputFor("http://example.com")
+	in.Rules = []byte(`{"json_equals":[{"pointer":"/n","equals":9007199254740993}]}`)
+	target, err := s.SaveTarget(context.Background(), 0, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(target.RuleValuesJSON) != 1 || target.RuleValuesJSON[0] != "9007199254740993" {
+		t.Fatal("exact UI value lost", target.RuleValuesJSON)
+	}
+}
 func TestRulesImmutableInFlightSnapshot(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})

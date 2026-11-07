@@ -1027,3 +1027,11 @@ input[type="checkbox"] {
     min-width: 650px;
   }
 }
+/* Optional rule editor and summary share the dialog's bounded scrolling. */
+.rules-fieldset { min-width: 0; border: 1px solid #dce2e6; border-radius: 12px; margin: 16px 0; padding: 14px; }
+.rules-fieldset legend { padding: 0 6px; font-weight: 600; }
+.rule-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; min-width: 0; }
+.rule-row label, .rule-row input { min-width: 0; }
+.rule-row button { grid-column: 1 / -1; justify-self: start; }
+.daily-section { margin-top: 22px; }
+@media (max-width: 480px) { .rule-row { grid-template-columns: 1fr; } }

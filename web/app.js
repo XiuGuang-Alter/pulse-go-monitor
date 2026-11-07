@@ -13,6 +13,7 @@ const state = {
   refreshing: false,
   mutating: false,
   historyBusy: false,
+  ruleRows: [],
 };
 const kinds = {
   ok: "正常",
@@ -20,6 +21,8 @@ const kinds = {
   timeout: "超时",
   request_error: "连接失败",
   invalid_input: "输入无效",
+  assertion_failed: "断言失败",
+  body_too_large: "正文超限",
 };
 let toastTimer;
 let refreshSerial = Promise.resolve();
@@ -310,6 +313,10 @@ function openForm(target = null) {
     if (key === "enabled") field.checked = value;
     else field.value = value;
   }
+  $("rule-statuses").value=(target?.rules?.expected_statuses??[]).join(', ');
+  $("rule-contains").value=target?.rules?.body_contains??'';
+  state.ruleRows=(target?.rules?.json_equals??[]).map((rule,i)=>({pointer:rule.pointer,expected:target.rule_values_json?.[i]??JSON.stringify(rule.equals)}));
+  renderRuleRows();
   notice("form-error");
   $("target-dialog").showModal();
 }
@@ -328,9 +335,11 @@ $("target-form").addEventListener("submit", async (event) => {
   $("save-target").disabled = true;
   notice("form-error");
   try {
+    const rules=rulePayload();
+    const body=JSON.stringify(data).slice(0,-1)+',"rules":'+rules+'}';
     const saved = await api(
       state.editing ? `/api/targets/${state.editing}` : "/api/targets",
-      { method: state.editing ? "PUT" : "POST", body: JSON.stringify(data) },
+      { method: state.editing ? "PUT" : "POST", body },
     );
     applySavedTarget(saved);
     $("target-dialog").close();
@@ -343,6 +352,31 @@ $("target-form").addEventListener("submit", async (event) => {
     endMutation();
   }
 });
+function captureRuleRows(){return state.ruleRows.map(row=>({pointer:row.pointerInput?.value??row.pointer,expected:row.valueInput?.value??row.expected}));}
+function renderRuleRows(){
+  $("json-rule-rows").replaceChildren();
+  state.ruleRows.forEach((rule,index)=>{
+    const row=el('div','rule-row');
+    const pointerLabel=el('label','','JSON路径 '+(index+1));const pointer=el('input');pointer.value=rule.pointer;pointer.maxLength=256;pointer.setAttribute('aria-label','JSON路径 '+(index+1));pointerLabel.append(pointer);
+    const valueLabel=el('label','','期望值 '+(index+1));const value=el('input');value.value=rule.expected;value.setAttribute('aria-label','期望值 '+(index+1));valueLabel.append(value);
+    const remove=el('button','button subtle','移除规则 '+(index+1));remove.type='button';remove.addEventListener('click',()=>{state.ruleRows=captureRuleRows().filter((_,i)=>i!==index);renderRuleRows();});
+    rule.pointerInput=pointer;rule.valueInput=value;row.append(pointerLabel,valueLabel,remove);$("json-rule-rows").append(row);
+  });
+  $("add-json-rule").disabled=state.ruleRows.length>=5;
+}
+$("add-json-rule").addEventListener('click',()=>{if(state.ruleRows.length>=5)return;state.ruleRows=captureRuleRows();state.ruleRows.push({pointer:'',expected:'null'});renderRuleRows();});
+function rulePayload(){
+  const raw=($("rule-statuses").value??'').trim();
+  const codes=raw?raw.split(/[,，\s]+/):[];
+  if(codes.length>10||codes.some(code=>!/^\d{3}$/.test(code)||Number(code)<200||Number(code)>599))throw Error('状态码应为200–599，最多10个');
+  const assertions=captureRuleRows().map((rule,index)=>{
+    let value;try{value=JSON.parse(rule.expected);}catch{throw Error('JSON规则'+(index+1)+'：期望值应为有效JSON标量');}
+    if(value!==null&&typeof value==='object')throw Error('JSON规则'+(index+1)+'：暂不支持对象或数组作为期望值');
+    return '{"pointer":'+JSON.stringify(rule.pointer)+',"equals":'+rule.expected+'}';
+  });
+  // Keep the original numeric tokens; JSON.parse/stringify would round large integers.
+  return '{"expected_statuses":'+JSON.stringify(codes.map(Number))+',"body_contains":'+JSON.stringify($("rule-contains").value??'')+',"json_equals":['+assertions.join(',')+']}';
+}
 async function checkNow(target) {
   if (state.mutating) return;
   try {
@@ -411,6 +445,7 @@ function openHistory(target) {
   $("history-chart").replaceChildren();
   $("history-empty").hidden = true;
   $("history-more").hidden = true;
+  $("daily-rows").replaceChildren();$("daily-note").textContent='正在读取日汇总…';
   notice("history-error");
   $("history-dialog").showModal();
   loadHistory(false);
@@ -424,15 +459,16 @@ async function loadHistory(more) {
   $("history-more").disabled = true;
   notice("history-error");
   try {
-    const result = await api(
+    const [result,daily] = await Promise.all([api(
       `/api/targets/${id}/checks?limit=50${more ? "&before_id=" + state.cursor : ""}`,
-    );
+    ),more?Promise.resolve(null):api(`/api/targets/${id}/daily?days=30`)]);
     if (token !== state.historyToken) return;
     state.historyRows = more
       ? [...state.historyRows, ...result.items]
       : result.items;
     state.cursor = result.next_before_id;
     renderHistory();
+    if(daily)renderDaily(daily);
     $("history-more").hidden = !state.cursor;
   } catch (error) {
     if (token === state.historyToken) notice("history-error", error.message);
@@ -458,9 +494,11 @@ function renderHistory() {
       status,
       el("td", "number", item.status_code || "—"),
       el("td", "number", ms(item.duration_ms)),
+      el("td", "number", item.total_duration_ms==null?'—':ms(item.total_duration_ms)),
     );
     const detail = el("td", "history-detail", item.detail);
     detail.append(el("small", "", item.input_url));
+    detail.append(el("small", "", item.config_version==null?'首版HTTP判定':('配置版本 '+item.config_version+' · 按当次规则判定')));
     if (item.final_url !== item.input_url && item.final_url)
       detail.append(el("small", "", "最终地址：" + item.final_url));
     row.append(detail);
@@ -502,6 +540,11 @@ function renderHistory() {
     dot.append(title);
     chart.append(dot);
   });
+}
+function renderDaily(daily){
+  $("daily-note").textContent='UTC自然日；'+new Date(daily.started_at).toLocaleString('zh-CN')+'开始汇总采集。按各次检查当时规则统计；无样本不代表健康，样本通过率不是全天在线率。';
+  $("daily-rows").replaceChildren();
+  for(const bucket of [...daily.buckets].reverse()){const row=el('tr');const notes=[bucket.samples?'':'无样本',bucket.in_progress?'进行中':'',bucket.migration_partial?'迁移前历史不完整':''].filter(Boolean).join(' · ');row.append(el('td','',bucket.date),el('td','number',String(bucket.samples)),el('td','number',bucket.availability==null?'—':bucket.availability.toFixed(1)+'%'),el('td','number',bucket.average_ms==null?'—':ms(bucket.average_ms)),el('td','number',bucket.max_ms==null?'—':ms(bucket.max_ms)),el('td','',notes));$("daily-rows").append(row);}
 }
 $("history-dialog").addEventListener("close", () => {
   state.historyId = null;

@@ -71,6 +71,19 @@ func TestAPILifecycle(t *testing.T) {
 	}
 }
 
+func TestStatusDiagnostics(t *testing.T) {
+	store := testStore(t)
+	s, _ := NewScheduler(store, 1, nil)
+	defer s.Stop()
+	w := httptest.NewRecorder()
+	NewApp(store, s).Handler().ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1:8080/api/status", nil))
+	var status map[string]any
+	json.Unmarshal(w.Body.Bytes(), &status)
+	if status["goroutines"] == nil || status["heap_alloc_bytes"] == nil {
+		t.Fatal("missing process diagnostics", status)
+	}
+}
+
 func TestAPIRejectsCrossSiteAndInvalidJSON(t *testing.T) {
 	store := testStore(t)
 	scheduler, _ := NewScheduler(store, 1, nil)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -53,6 +54,15 @@ func scanTarget(row rowScanner) (Target, error) {
 	var rules string
 	err := row.Scan(&t.ID, &t.Name, &t.URL, &t.IntervalSeconds, &t.TimeoutSeconds, &t.Enabled, &t.CreatedAt, &t.NextCheckAt, &t.Version, &rules)
 	t.Rules = json.RawMessage(rules)
+	var configured CheckRules
+	if err == nil {
+		if e := json.Unmarshal(t.Rules, &configured); e != nil {
+			return Target{}, fmt.Errorf("数据库规则格式无效")
+		}
+		for _, rule := range configured.JSONEquals {
+			t.RuleValuesJSON = append(t.RuleValuesJSON, string(rule.Equals))
+		}
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		err = ErrNotFound
 	}
@@ -153,7 +163,7 @@ func (s *Store) ListTargets(ctx context.Context) ([]Target, error) {
 		indices[t.ID] = i
 	}
 	cutoff := time.Now().Add(-30 * 24 * time.Hour).UnixMilli()
-	rows, err := s.db.QueryContext(ctx, `SELECT `+checkColumns+` FROM checks WHERE id IN (SELECT MAX(id) FROM checks WHERE checked_at>=? GROUP BY target_id)`, cutoff)
+	rows, err := s.db.QueryContext(ctx, `SELECT c.`+strings.ReplaceAll(checkColumns, ",", ",c.")+` FROM targets t JOIN checks c ON c.id=(SELECT id FROM checks INDEXED BY checks_target_id WHERE target_id=t.id AND checked_at>=? ORDER BY id DESC LIMIT 1)`, cutoff)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +252,7 @@ func (s *Store) History(ctx context.Context, id int64, limit int, before int64) 
 	return s.history(ctx, id, limit, before)
 }
 func (s *Store) history(ctx context.Context, id int64, limit int, before int64) ([]CheckRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+checkColumns+` FROM checks WHERE target_id=? AND checked_at>=? AND (?=0 OR id<?) ORDER BY id DESC LIMIT ?`, id, time.Now().Add(-30*24*time.Hour).UnixMilli(), before, before, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+checkColumns+` FROM checks INDEXED BY checks_target_id WHERE target_id=? AND checked_at>=? AND (?=0 OR id<?) ORDER BY id DESC LIMIT ?`, id, time.Now().Add(-30*24*time.Hour).UnixMilli(), before, before, limit)
 	if err != nil {
 		return nil, err
 	}

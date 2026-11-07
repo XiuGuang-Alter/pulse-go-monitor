@@ -120,7 +120,7 @@
             </button>
           </div>
           <footer class="panel-footer">
-            <span><i class="status-dot"></i> 所有时间均为本机时间</span
+            <span><i class="status-dot"></i> 检查时间为本机时间，日汇总按UTC</span
             ><span id="updated-at">尚未更新</span>
           </footer>
         </section>
@@ -189,6 +189,15 @@
           ><input name="enabled" type="checkbox" checked />
           保存后启用自动监测</label
         >
+        <fieldset class="rules-fieldset">
+          <legend>业务规则（可选）</legend>
+          <p class="muted small">所有规则均满足才通过；留空时仅检查HTTP 200–299。读取正文时最多1MiB，仍受超时限制。</p>
+          <label>允许状态码<input id="rule-statuses" placeholder="例如：200, 204；留空为200–299" autocomplete="off" /></label>
+          <label>正文包含<input id="rule-contains" maxlength="256" placeholder="区分大小写，最多256字节" autocomplete="off" /></label>
+          <div id="json-rule-rows"></div>
+          <button id="add-json-rule" type="button" class="button subtle">添加JSON规则</button>
+          <p class="muted small">JSON路径例如 /code、/items/0/ready；期望值使用JSON标量，例如0、true或"ready"。最多5条。</p>
+        </fieldset>
         <p id="form-error" class="notice error" role="alert" hidden></p>
         <div class="dialog-actions">
           <button type="button" class="button" data-close="target-dialog">
@@ -235,7 +244,8 @@
               <th>检查时间</th>
               <th>结果</th>
               <th>状态码</th>
-              <th>耗时</th>
+              <th>响应头耗时</th>
+              <th>完整耗时</th>
               <th>说明 / 检查时地址</th>
             </tr>
           </thead>
@@ -245,6 +255,11 @@
       <p id="history-empty" class="muted" hidden>
         还没有检查记录。可以先执行一次检查。
       </p>
+      <section class="daily-section">
+        <h3>最近30日样本汇总（UTC）</h3>
+        <p id="daily-note" class="muted small"></p>
+        <div class="history-scroll"><table><thead><tr><th>UTC日期</th><th>样本</th><th>通过率</th><th>平均响应头耗时</th><th>最长响应头耗时</th><th>说明</th></tr></thead><tbody id="daily-rows"></tbody></table></div>
+      </section>
       <div class="dialog-actions">
         <button id="history-more" class="button">加载更早记录</button
         ><button class="button primary" data-close="history-dialog">
@@ -287,8 +302,7 @@
           启用目标后会自动检查；“立即检查”可以手动触发，暂停目标也可手动检查。
         </li>
         <li>
-          点击目标名称或“历史”查看记录。200–299 表示本次 HTTP
-          检查通过，不等于所有业务正常。
+          点击目标名称或“历史”查看明细与UTC日汇总。默认200–299通过；配置业务规则后还需满足全部规则，仍不代表完整业务流程正常。
         </li>
         <li>
           编辑不删除旧记录，历史会保留检查时的网址；删除目标则同时删除它的历史。
