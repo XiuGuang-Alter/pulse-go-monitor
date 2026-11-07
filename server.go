@@ -189,6 +189,27 @@ func (a *App) Handler() http.Handler {
 		}
 		jsonResponse(w, 200, map[string]any{"items": records, "next_before_id": next})
 	})
+	mux.HandleFunc("GET /api/targets/{id}/daily", func(w http.ResponseWriter, r *http.Request) {
+		id, err := targetID(r)
+		if err != nil {
+			apiError(w, err)
+			return
+		}
+		days := 30
+		if raw := r.URL.Query().Get("days"); raw != "" {
+			days, err = strconv.Atoi(raw)
+			if err != nil {
+				apiError(w, ErrValidation)
+				return
+			}
+		}
+		data, err := a.store.Daily(r.Context(), id, days)
+		if err != nil {
+			apiError(w, err)
+			return
+		}
+		jsonResponse(w, 200, data)
+	})
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, 404, map[string]string{"error": "接口不存在"})
 	})

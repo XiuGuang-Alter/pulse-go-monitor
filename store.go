@@ -28,26 +28,11 @@ func OpenStore(path string) (*Store, error) {
 	db.SetMaxOpenConns(1)
 	s := &Store{db: db}
 	fail := func(err error) (*Store, error) { db.Close(); return nil, err }
-	var version int
-	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+	_, err = db.Exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;`)
+	if err != nil {
 		return fail(err)
 	}
-	if version > 1 {
-		return fail(fmt.Errorf("数据库版本%d比程序支持的版本新", version))
-	}
-	_, err = db.Exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;
- CREATE TABLE IF NOT EXISTS targets (
- id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, url TEXT NOT NULL,
- interval_seconds INTEGER NOT NULL, timeout_seconds INTEGER NOT NULL,
- enabled INTEGER NOT NULL, created_at INTEGER NOT NULL, next_check_at INTEGER NOT NULL,
- version INTEGER NOT NULL DEFAULT 1);
- CREATE TABLE IF NOT EXISTS checks (
- id INTEGER PRIMARY KEY AUTOINCREMENT, target_id INTEGER NOT NULL REFERENCES targets(id) ON DELETE CASCADE,
- input_url TEXT NOT NULL, final_url TEXT NOT NULL, status_code INTEGER NOT NULL,
- duration_ms REAL NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL, checked_at INTEGER NOT NULL);
- CREATE INDEX IF NOT EXISTS checks_target_id ON checks(target_id,id DESC);
- PRAGMA user_version=1;`)
-	if err != nil {
+	if err = migrateStore(context.Background(), db); err != nil {
 		return fail(err)
 	}
 	if _, err = db.Exec("DELETE FROM checks WHERE checked_at<?", time.Now().Add(-30*24*time.Hour).UnixMilli()); err != nil {
@@ -148,22 +133,50 @@ func (s *Store) ListTargets(ctx context.Context) ([]Target, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i := range targets {
-		t := &targets[i]
-		latest, err := s.history(ctx, t.ID, 1, 0)
-		if err != nil {
+	indices := map[int64]int{}
+	for i, t := range targets {
+		indices[t.ID] = i
+	}
+	cutoff := time.Now().Add(-30 * 24 * time.Hour).UnixMilli()
+	rows, err := s.db.QueryContext(ctx, `SELECT id,target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at FROM checks WHERE id IN (SELECT MAX(id) FROM checks WHERE checked_at>=? GROUP BY target_id)`, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var r CheckRecord
+		if err = rows.Scan(&r.ID, &r.TargetID, &r.InputURL, &r.FinalURL, &r.StatusCode, &r.DurationMS, &r.Kind, &r.Detail, &r.CheckedAt); err != nil {
+			rows.Close()
 			return nil, err
 		}
-		if len(latest) > 0 {
-			t.Latest = &latest[0]
+		if idx, ok := indices[r.TargetID]; ok {
+			targets[idx].Latest = &r
 		}
-		err = s.db.QueryRowContext(ctx, `SELECT COUNT(*),COALESCE(SUM(CASE WHEN kind='ok' THEN 1 ELSE 0 END),0),COALESCE(AVG(duration_ms),0) FROM checks WHERE target_id=? AND checked_at>=?`, t.ID, time.Now().Add(-30*24*time.Hour).UnixMilli()).Scan(&t.Stats.Samples, &t.Stats.Successes, &t.Stats.AverageMS)
-		if err != nil {
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	rows, err = s.db.QueryContext(ctx, `SELECT target_id,COUNT(*),COALESCE(SUM(CASE WHEN kind='ok' THEN 1 ELSE 0 END),0),COALESCE(AVG(duration_ms),0) FROM checks WHERE checked_at>=? GROUP BY target_id`, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var stats SampleStats
+		if err = rows.Scan(&id, &stats.Samples, &stats.Successes, &stats.AverageMS); err != nil {
 			return nil, err
 		}
-		if t.Stats.Samples > 0 {
-			t.Stats.Availability = 100 * float64(t.Stats.Successes) / float64(t.Stats.Samples)
+		if stats.Samples > 0 {
+			stats.Availability = 100 * float64(stats.Successes) / float64(stats.Samples)
 		}
+		if idx, ok := indices[id]; ok {
+			targets[idx].Stats = stats
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return targets, nil
 }
@@ -189,6 +202,9 @@ func (s *Store) RecordCheck(ctx context.Context, t Target, r Result, checkedAt t
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE targets SET next_check_at=? WHERE id=? AND version=?`, time.Now().Add(time.Duration(t.IntervalSeconds)*time.Second).UnixMilli(), t.ID, t.Version)
 	if err != nil {
+		return err
+	}
+	if err = recordDaily(ctx, tx, t.ID, r, checkedAt, time.Now()); err != nil {
 		return err
 	}
 	return tx.Commit()

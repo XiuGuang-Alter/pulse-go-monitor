@@ -78,6 +78,11 @@ func (s *Scheduler) Start() {
 }
 func (s *Scheduler) scheduleDue() {
 	s.mu.Lock()
+	for id, at := range s.retryAt {
+		if !time.Now().Before(at) {
+			delete(s.retryAt, id)
+		}
+	}
 	retry := s.readRetryAt
 	stopped := s.stopping
 	s.mu.Unlock()
