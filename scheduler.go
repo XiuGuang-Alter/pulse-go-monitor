@@ -32,9 +32,6 @@ func NewScheduler(store *Store, concurrency int, checker Checker) (*Scheduler, e
 	if concurrency < 1 || concurrency > 32 {
 		return nil, fmt.Errorf("并发数范围为1–32")
 	}
-	if checker == nil {
-		checker = Check
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Scheduler{store: store, checker: checker, ctx: ctx, cancel: cancel, slots: make(chan struct{}, concurrency), running: map[int64]bool{}, pollInterval: 250 * time.Millisecond, wake: make(chan struct{}, 1), retryAt: map[int64]time.Time{}, ready: make(chan struct{})}, nil
 }
@@ -153,7 +150,17 @@ func (s *Scheduler) launch(target Target) error {
 		defer s.wg.Done()
 		defer func() { s.mu.Lock(); delete(s.running, target.ID); <-s.slots; s.mu.Unlock(); s.Notify() }()
 		checkedAt := time.Now()
-		result := s.checker(s.ctx, target.URL, time.Duration(target.TimeoutSeconds)*time.Second)
+		var result Result
+		if s.checker != nil {
+			result = s.checker(s.ctx, target.URL, time.Duration(target.TimeoutSeconds)*time.Second)
+		} else {
+			rules, err := parseRules(target.Rules)
+			if err != nil {
+				result = Result{URL: target.URL, Kind: "invalid_input", Detail: "目标规则无效"}
+			} else {
+				result = CheckWithRules(s.ctx, target.URL, time.Duration(target.TimeoutSeconds)*time.Second, rules)
+			}
+		}
 		if s.ctx.Err() != nil {
 			return
 		}

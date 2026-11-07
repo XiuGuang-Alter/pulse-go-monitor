@@ -128,7 +128,7 @@ func TestServeShutdownCancelsCheckAndPreservesConfiguration(t *testing.T) {
 	if err != nil || len(targets) != 1 {
 		t.Fatalf("configuration not preserved: %+v %v", targets, err)
 	}
-	if targets[0].TargetInput != input || targets[0].Stats.Samples != 0 {
+	if !sameTargetInput(targets[0].TargetInput, input) || targets[0].Stats.Samples != 0 {
 		t.Fatalf("configuration changed or shutdown recorded as target failure: %+v", targets[0])
 	}
 }

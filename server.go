@@ -57,7 +57,7 @@ func apiError(w http.ResponseWriter, err error) {
 }
 func decodeInput(w http.ResponseWriter, r *http.Request) (TargetInput, error) {
 	var in TargetInput
-	r.Body = http.MaxBytesReader(w, r.Body, 8192)
+	r.Body = http.MaxBytesReader(w, r.Body, 16384)
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()

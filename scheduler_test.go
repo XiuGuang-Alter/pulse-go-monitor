@@ -166,7 +166,7 @@ func TestSchedulerConfigurationChangesDuringCheck(t *testing.T) {
 				return
 			}
 			current, err := store.GetTarget(ctx, target.ID)
-			if err != nil || current.TargetInput != updated.TargetInput || current.NextCheckAt != updated.NextCheckAt {
+			if err != nil || !sameTargetInput(current.TargetInput, updated.TargetInput) || current.NextCheckAt != updated.NextCheckAt {
 				t.Fatalf("old task changed edited configuration/schedule: %+v want %+v err=%v", current, updated, err)
 			}
 			history, err := store.History(ctx, target.ID, 10, 0)

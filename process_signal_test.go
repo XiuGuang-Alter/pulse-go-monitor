@@ -212,7 +212,7 @@ func TestRealProcessInterrupt(t *testing.T) {
 	}
 	defer store.Close()
 	targets, err := store.ListTargets(context.Background())
-	if err != nil || len(targets) != 1 || targets[0].TargetInput != inputTarget || targets[0].Stats.Samples != 0 {
+	if err != nil || len(targets) != 1 || !sameTargetInput(targets[0].TargetInput, inputTarget) || targets[0].Stats.Samples != 0 {
 		t.Fatalf("persistence/cancel: %+v %v", targets, err)
 	}
 }

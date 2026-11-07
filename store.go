@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -42,13 +43,16 @@ func OpenStore(path string) (*Store, error) {
 }
 func (s *Store) Close() error { return s.db.Close() }
 
-const targetColumns = `id,name,url,interval_seconds,timeout_seconds,enabled,created_at,next_check_at,version`
+const targetColumns = `id,name,url,interval_seconds,timeout_seconds,enabled,created_at,next_check_at,version,rules`
+const checkColumns = `id,target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot`
 
 type rowScanner interface{ Scan(...any) error }
 
 func scanTarget(row rowScanner) (Target, error) {
 	var t Target
-	err := row.Scan(&t.ID, &t.Name, &t.URL, &t.IntervalSeconds, &t.TimeoutSeconds, &t.Enabled, &t.CreatedAt, &t.NextCheckAt, &t.Version)
+	var rules string
+	err := row.Scan(&t.ID, &t.Name, &t.URL, &t.IntervalSeconds, &t.TimeoutSeconds, &t.Enabled, &t.CreatedAt, &t.NextCheckAt, &t.Version, &rules)
+	t.Rules = json.RawMessage(rules)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = ErrNotFound
 	}
@@ -66,6 +70,17 @@ func (s *Store) SaveTarget(ctx context.Context, id int64, in TargetInput) (Targe
 		return Target{}, err
 	}
 	defer tx.Rollback()
+	if id != 0 && len(in.Rules) == 0 {
+		var previous string
+		if err = tx.QueryRowContext(ctx, "SELECT rules FROM targets WHERE id=?", id).Scan(&previous); errors.Is(err, sql.ErrNoRows) {
+			return Target{}, ErrNotFound
+		} else if err != nil {
+			return Target{}, err
+		}
+		in.Rules = json.RawMessage(previous)
+	}
+	rules, _ := parseRules(in.Rules)
+	in.Rules, _ = json.Marshal(rules)
 	now := time.Now().UnixMilli()
 	if id == 0 {
 		var count int
@@ -75,7 +90,7 @@ func (s *Store) SaveTarget(ctx context.Context, id int64, in TargetInput) (Targe
 		if count >= 100 {
 			return Target{}, ErrLimit
 		}
-		result, e := tx.ExecContext(ctx, `INSERT INTO targets(name,url,interval_seconds,timeout_seconds,enabled,created_at,next_check_at) VALUES(?,?,?,?,?,?,?)`, in.Name, in.URL, in.IntervalSeconds, in.TimeoutSeconds, in.Enabled, now, now)
+		result, e := tx.ExecContext(ctx, `INSERT INTO targets(name,url,interval_seconds,timeout_seconds,enabled,created_at,next_check_at,rules) VALUES(?,?,?,?,?,?,?,?)`, in.Name, in.URL, in.IntervalSeconds, in.TimeoutSeconds, in.Enabled, now, now, string(in.Rules))
 		if e != nil {
 			return Target{}, e
 		}
@@ -84,7 +99,7 @@ func (s *Store) SaveTarget(ctx context.Context, id int64, in TargetInput) (Targe
 			return Target{}, err
 		}
 	} else {
-		result, e := tx.ExecContext(ctx, `UPDATE targets SET name=?,url=?,interval_seconds=?,timeout_seconds=?,enabled=?,next_check_at=?,version=version+1 WHERE id=?`, in.Name, in.URL, in.IntervalSeconds, in.TimeoutSeconds, in.Enabled, now, id)
+		result, e := tx.ExecContext(ctx, `UPDATE targets SET name=?,url=?,interval_seconds=?,timeout_seconds=?,enabled=?,next_check_at=?,rules=?,version=version+1 WHERE id=?`, in.Name, in.URL, in.IntervalSeconds, in.TimeoutSeconds, in.Enabled, now, string(in.Rules), id)
 		if e != nil {
 			return Target{}, e
 		}
@@ -138,15 +153,15 @@ func (s *Store) ListTargets(ctx context.Context) ([]Target, error) {
 		indices[t.ID] = i
 	}
 	cutoff := time.Now().Add(-30 * 24 * time.Hour).UnixMilli()
-	rows, err := s.db.QueryContext(ctx, `SELECT id,target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at FROM checks WHERE id IN (SELECT MAX(id) FROM checks WHERE checked_at>=? GROUP BY target_id)`, cutoff)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+checkColumns+` FROM checks WHERE id IN (SELECT MAX(id) FROM checks WHERE checked_at>=? GROUP BY target_id)`, cutoff)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var r CheckRecord
-		if err = rows.Scan(&r.ID, &r.TargetID, &r.InputURL, &r.FinalURL, &r.StatusCode, &r.DurationMS, &r.Kind, &r.Detail, &r.CheckedAt); err != nil {
+		r, e := scanCheck(rows)
+		if e != nil {
 			rows.Close()
-			return nil, err
+			return nil, e
 		}
 		if idx, ok := indices[r.TargetID]; ok {
 			targets[idx].Latest = &r
@@ -192,7 +207,15 @@ func (s *Store) RecordCheck(ctx context.Context, t Target, r Result, checkedAt t
 	} else if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO checks(target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at) VALUES(?,?,?,?,?,?,?,?)`, t.ID, t.URL, r.URL, r.StatusCode, float64(r.Duration)/float64(time.Millisecond), r.Kind, r.Detail, checkedAt.UnixMilli())
+	var total any
+	if r.TotalDuration > 0 {
+		total = float64(r.TotalDuration) / float64(time.Millisecond)
+	}
+	rules := t.Rules
+	if len(rules) == 0 {
+		rules = json.RawMessage(`{}`)
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO checks(target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, t.ID, t.URL, r.URL, r.StatusCode, float64(r.Duration)/float64(time.Millisecond), r.Kind, r.Detail, checkedAt.UnixMilli(), total, t.Version, string(rules))
 	if err != nil {
 		return err
 	}
@@ -219,18 +242,27 @@ func (s *Store) History(ctx context.Context, id int64, limit int, before int64) 
 	return s.history(ctx, id, limit, before)
 }
 func (s *Store) history(ctx context.Context, id int64, limit int, before int64) ([]CheckRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at FROM checks WHERE target_id=? AND checked_at>=? AND (?=0 OR id<?) ORDER BY id DESC LIMIT ?`, id, time.Now().Add(-30*24*time.Hour).UnixMilli(), before, before, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+checkColumns+` FROM checks WHERE target_id=? AND checked_at>=? AND (?=0 OR id<?) ORDER BY id DESC LIMIT ?`, id, time.Now().Add(-30*24*time.Hour).UnixMilli(), before, before, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []CheckRecord{}
 	for rows.Next() {
-		var r CheckRecord
-		if err = rows.Scan(&r.ID, &r.TargetID, &r.InputURL, &r.FinalURL, &r.StatusCode, &r.DurationMS, &r.Kind, &r.Detail, &r.CheckedAt); err != nil {
-			return nil, err
+		r, e := scanCheck(rows)
+		if e != nil {
+			return nil, e
 		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+func scanCheck(row rowScanner) (CheckRecord, error) {
+	var r CheckRecord
+	var snapshot sql.NullString
+	err := row.Scan(&r.ID, &r.TargetID, &r.InputURL, &r.FinalURL, &r.StatusCode, &r.DurationMS, &r.Kind, &r.Detail, &r.CheckedAt, &r.TotalDurationMS, &r.ConfigVersion, &snapshot)
+	if snapshot.Valid {
+		r.RulesSnapshot = json.RawMessage(snapshot.String)
+	}
+	return r, err
 }
