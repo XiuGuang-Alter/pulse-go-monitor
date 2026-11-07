@@ -1,0 +1,1 @@
+{"passed":true,"upgrade":"actual v1.0 binary database -> schema3","target_id_preserved":true,"history_id_preserved":true,"old_binary_refused_upgraded":true,"restored_backup_opened_by_v1":true,"backup_sha256":"c3a0c42a54420d97d19d1d10b79adbe9b621f0488ef79603c7739adc2a15c3d9"}

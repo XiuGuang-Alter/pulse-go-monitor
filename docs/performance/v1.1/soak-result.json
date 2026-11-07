@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "elapsed_seconds": 7200.147785,
+  "configured_seconds": 7200,
+  "completed_samples": 70254,
+  "peak_upstream_active": 5,
+  "same_url_overlaps": 0,
+  "mutations": 23,
+  "seen_kinds": [
+    "ok",
+    "http_error",
+    "assertion_failed",
+    "timeout"
+  ],
+  "restart_targets": 100,
+  "termination": "isolated child terminated and restarted; graceful SIGINT/Ctrl+C covered separately"
+}

@@ -1,0 +1,15 @@
+=== RUN   TestPerformanceQueryPlans
+    daily_performance_test.go:56: SELECT c.id FROM targets t JOIN checks c ON c.id=(SELECT id FROM checks INDEXED BY checks_target_id WHERE target_id=t.id AND checked_at>=0 ORDER BY id DESC LIMIT 1)
+    daily_performance_test.go:67: SCAN t
+    daily_performance_test.go:67: SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    daily_performance_test.go:67: CORRELATED SCALAR SUBQUERY 1
+    daily_performance_test.go:67: SEARCH checks USING INDEX checks_target_id (target_id=?)
+    daily_performance_test.go:56: SELECT target_id,COUNT(*),SUM(CASE WHEN kind='ok' THEN 1 ELSE 0 END),AVG(duration_ms) FROM checks WHERE checked_at>=0 GROUP BY target_id
+    daily_performance_test.go:67: SCAN checks USING COVERING INDEX checks_stats
+    daily_performance_test.go:56: SELECT * FROM checks INDEXED BY checks_target_id WHERE target_id=1 AND checked_at>=0 ORDER BY id DESC LIMIT 50
+    daily_performance_test.go:67: SEARCH checks USING INDEX checks_target_id (target_id=?)
+    daily_performance_test.go:56: SELECT * FROM daily_summaries WHERE target_id=1 AND date>='2000-01-01' AND date<='2100-01-01' ORDER BY date
+    daily_performance_test.go:67: SEARCH daily_summaries USING INDEX sqlite_autoindex_daily_summaries_1 (target_id=? AND date>? AND date<?)
+--- PASS: TestPerformanceQueryPlans (0.02s)
+PASS
+ok  	github.com/XiuGuang-Alter/pulse-go-monitor	0.920s

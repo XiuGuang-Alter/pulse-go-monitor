@@ -48,11 +48,12 @@ try{
         $last=$null
         for($attempt=0;$attempt -lt 100;$attempt++){
             $allTargets=Invoke-RestMethod "$base/api/targets"
-            $last=($allTargets | Where-Object {$_.id -eq $ruleTarget.id}).latest
-            if($last.config_version -eq $expectedVersion -and $last.kind -eq $expectedKind){break}
+            $current=$allTargets | Where-Object {$_.id -eq $ruleTarget.id}
+            $last=$current.latest
+            if($last.config_version -eq $expectedVersion -and $last.kind -eq $expectedKind -and -not $current.running){break}
             Start-Sleep -Milliseconds 100
         }
-        if($last.kind -ne $expectedKind -or $last.config_version -ne $expectedVersion -or $null -eq $last.total_duration_ms){throw '下载包业务规则或完整耗时异常'}
+        if($current.running -or $last.kind -ne $expectedKind -or $last.config_version -ne $expectedVersion -or $null -eq $last.total_duration_ms){throw '下载包业务规则或完整耗时异常'}
     }
     $daily=Invoke-RestMethod "$base/api/targets/$($ruleTarget.id)/daily?days=1"
     if($daily.timezone -ne 'UTC' -or $daily.buckets[0].samples -ne 2 -or $daily.buckets[0].successes -ne 1){throw '下载包日汇总异常'}
