@@ -120,6 +120,7 @@ function matches(target) {
   );
 }
 function render() {
+  $("add-target").disabled=state.mutating;
   const targets = state.targets,
     enabled = targets.filter((t) => t.enabled),
     healthy = enabled.filter((t) => t.latest?.kind === "ok"),

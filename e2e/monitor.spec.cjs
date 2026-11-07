@@ -33,6 +33,16 @@ async function add(page,name,route,enabled=true){
  await page.getByLabel('检查间隔（秒）',{exact:true}).fill('5');await page.getByLabel('超时上限（秒）',{exact:true}).fill('1');
  await page.getByLabel('保存后启用自动监测').setChecked(enabled);await page.locator('#save-target').click();await expect(page.locator('#target-dialog')).not.toBeVisible();await expect(row(page,name).getByRole('button',{name:'编辑',exact:true})).toBeEnabled();
 }
+test('保存后的刷新未完成时添加按钮禁用，完成后能打开表单',async({page})=>{
+ await add(page,'操作时序目标','/ok',false);
+ let release;const held=new Promise(resolve=>release=resolve);
+ await page.route(/\/api\/targets$/,async route=>{if(route.request().method()==='GET')await held;await route.continue();});
+ const requested=page.waitForRequest(req=>req.method()==='GET'&&req.url().endsWith('/api/targets'));
+ await row(page,'操作时序目标').getByRole('button',{name:'恢复',exact:true}).click();await requested;
+ try{await expect(page.locator('#add-target')).toBeDisabled();}finally{release();}
+ await expect(page.locator('#add-target')).toBeEnabled();await page.locator('#add-target').click();await expect(page.locator('#target-dialog')).toBeVisible();
+});
+
 test('完整管理流程、校验、异常和筛选',async({page,request})=>{
  await page.locator('#add-target').click();await page.locator('#save-target').click();
  expect(await page.locator('input[name=name]').evaluate(e=>e.validity.valueMissing)).toBeTruthy();
