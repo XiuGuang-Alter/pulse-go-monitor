@@ -1,5 +1,5 @@
 #Requires -Version 7.0
-param([string]$ZipPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'dist/pulse-v1.0.0-windows-amd64.zip'))
+param([string]$ZipPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'dist/pulse-v1.1.0-windows-amd64.zip'))
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $directory=Join-Path $root ('.cache/release-smoke-'+[Guid]::NewGuid().ToString('N'))
@@ -34,7 +34,29 @@ try{
         Start-Sleep -Milliseconds 100
     }
     if('ok' -notin $kinds -or 'http_error' -notin $kinds -or 'timeout' -notin $kinds){throw '演示三种结果未全部产生'}
-    "PASS: 新目录解压、发布白名单、无Go/Node PATH运行、页面/API及正常/500/超时"
+    $normal=$targets | Where-Object {$_.url -match '/ok$'} | Select-Object -First 1
+    $payload=@{name='package-rule-fixture';url=$normal.url;interval_seconds=60;timeout_seconds=1;enabled=$false;rules=@{json_equals=@(@{pointer='/message';equals='wrong'})}}
+    $ruleTarget=Invoke-RestMethod "$base/api/targets" -Method Post -ContentType 'application/json' -Body ($payload|ConvertTo-Json -Depth 8)
+    $expectedVersion=1
+    foreach($expectedKind in @('assertion_failed','ok')){
+        if($expectedKind -eq 'ok'){
+            $payload.rules.json_equals[0].equals='演示服务正常'
+            $ruleTarget=Invoke-RestMethod "$base/api/targets/$($ruleTarget.id)" -Method Put -ContentType 'application/json' -Body ($payload|ConvertTo-Json -Depth 8)
+            $expectedVersion++
+        }
+        Invoke-RestMethod "$base/api/targets/$($ruleTarget.id)/check" -Method Post | Out-Null
+        $last=$null
+        for($attempt=0;$attempt -lt 100;$attempt++){
+            $allTargets=Invoke-RestMethod "$base/api/targets"
+            $last=($allTargets | Where-Object {$_.id -eq $ruleTarget.id}).latest
+            if($last.config_version -eq $expectedVersion -and $last.kind -eq $expectedKind){break}
+            Start-Sleep -Milliseconds 100
+        }
+        if($last.kind -ne $expectedKind -or $last.config_version -ne $expectedVersion -or $null -eq $last.total_duration_ms){throw '下载包业务规则或完整耗时异常'}
+    }
+    $daily=Invoke-RestMethod "$base/api/targets/$($ruleTarget.id)/daily?days=1"
+    if($daily.timezone -ne 'UTC' -or $daily.buckets[0].samples -ne 2 -or $daily.buckets[0].successes -ne 1){throw '下载包日汇总异常'}
+    "PASS: 新目录解压、发布白名单、无Go/Node PATH运行、页面/API、正常/500/超时、规则失败与修复及UTC汇总"
 }finally{
     if($null -ne $process -and -not $process.HasExited){$process.Kill();$process.WaitForExit()}
     $env:PATH=$oldPath

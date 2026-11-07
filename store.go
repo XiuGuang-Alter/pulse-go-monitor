@@ -218,7 +218,7 @@ func (s *Store) RecordCheck(ctx context.Context, t Target, r Result, checkedAt t
 		return err
 	}
 	var total any
-	if r.TotalDuration > 0 {
+	if r.durationMeasured || r.TotalDuration > 0 {
 		total = float64(r.TotalDuration) / float64(time.Millisecond)
 	}
 	rules := t.Rules

@@ -8,7 +8,26 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestMeasuredZeroTotalDurationIsNotLegacyNull(t *testing.T) {
+	s := testStore(t)
+	target, err := s.SaveTarget(context.Background(), 0, inputFor("http://example.com"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.RecordCheck(context.Background(), target, Result{Kind: "ok", durationMeasured: true}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.History(context.Background(), target.ID, 50, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0].TotalDurationMS == nil || *rows[0].TotalDurationMS != 0 {
+		t.Fatalf("measured zero became absent: %+v", rows[0])
+	}
+}
 
 func sameTargetInput(a, b TargetInput) bool {
 	ar, e := parseRules(a.Rules)

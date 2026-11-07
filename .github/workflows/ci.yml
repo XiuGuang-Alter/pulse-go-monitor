@@ -52,6 +52,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/test-page-acceptance.ps1
+      - name: Windows standalone package smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/package-release.ps1
+          ./scripts/test-release.ps1
       - name: Retain test evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -61,5 +67,7 @@ jobs:
             coverage.out
             test-results/
             playwright-report/
+            dist/pulse-v1.1.0-windows-amd64.zip
+            dist/SHA256SUMS.txt
           retention-days: 14
           if-no-files-found: warn

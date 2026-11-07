@@ -13,12 +13,13 @@ import (
 
 // Result 描述一次检查。Duration 到最终响应头为止，不包含正文下载。
 type Result struct {
-	URL           string
-	StatusCode    int
-	Duration      time.Duration
-	Kind          string
-	Detail        string
-	TotalDuration time.Duration
+	URL              string
+	StatusCode       int
+	Duration         time.Duration
+	Kind             string
+	Detail           string
+	TotalDuration    time.Duration
+	durationMeasured bool
 }
 
 // Check 只检查一次；timeout 覆盖连接、重定向和等待响应头。
@@ -52,7 +53,7 @@ func CheckWithRules(ctx context.Context, rawURL string, timeout time.Duration, r
 
 	client := &http.Client{}
 	started := time.Now()
-	defer func() { result.TotalDuration = time.Since(started) }()
+	defer func() { result.TotalDuration = time.Since(started); result.durationMeasured = true }()
 	response, err := client.Do(req)
 	result.Duration = time.Since(started)
 	if err != nil {
