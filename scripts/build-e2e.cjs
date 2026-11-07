@@ -1,0 +1,10 @@
+const {spawnSync}=require('node:child_process');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const bundled=path.join(root,'.tools/go/bin/go.exe');
+fs.mkdirSync(path.join(root,'.cache'),{recursive:true});
+const env={...process.env,GOCACHE:path.join(root,'.cache/build'),GOTELEMETRY:'off'};
+if(fs.existsSync(bundled))env.GOPATH=path.join(root,'.cache/gopath');
+const result=spawnSync(fs.existsSync(bundled)?bundled:'go',['build','-buildvcs=false','-o',path.join(root,'.cache',process.platform==='win32'?'pulse-e2e.exe':'pulse-e2e'),'.'],{cwd:root,stdio:'inherit',env});
+process.exit(result.status??1);

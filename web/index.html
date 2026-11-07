@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pulse · 网站监测</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Pulse 首页"
+        ><span class="brand-mark">p</span
+        ><span>pulse<span class="brand-sub">网站与 API 监测</span></span></a
+      >
+      <p class="nav-caption">工作空间</p>
+      <nav aria-label="主导航">
+        <button class="nav-item active" data-filter="all">
+          <span>▦</span> 监测总览</button
+        ><button class="nav-item" data-filter="error">
+          <span>◉</span> 异常目标 <b id="nav-errors">0</b></button
+        ><button class="nav-item" data-filter="paused">
+          <span>Ⅱ</span> 已暂停
+        </button>
+      </nav>
+      <div class="side-bottom">
+        <button id="help-open" class="nav-item"><span>?</span> 使用说明</button>
+        <div class="workspace">
+          <span class="status-dot"></span>
+          <div>本地工作区<small>数据保存在这台电脑</small></div>
+        </div>
+      </div>
+    </aside>
+    <div class="shell">
+      <header class="topbar">
+        <div>工作空间 <span>/</span> <strong>监测总览</strong></div>
+        <span id="connection" class="connection"
+          ><i class="status-dot"></i>正在连接</span
+        >
+      </header>
+      <main>
+        <section class="page-heading">
+          <div>
+            <p class="eyebrow">UPTIME, AT A GLANCE</p>
+            <h1>让每一次响应，都有记录。</h1>
+            <p class="muted">查看服务状态，追踪响应变化，让异常有迹可循。</p>
+          </div>
+          <button class="button primary" id="add-target">
+            ＋ 添加监测目标
+          </button>
+        </section>
+        <div id="global-error" class="notice error" role="alert" hidden></div>
+        <section class="metrics" aria-label="监测概况">
+          <article class="metric">
+            <span>监测目标</span><strong id="metric-total">—</strong
+            ><small id="metric-enabled">等待数据</small>
+            <div class="metric-icon">▦</div>
+          </article>
+          <article class="metric">
+            <span>最近检查正常</span><strong id="metric-healthy">—</strong
+            ><small>已启用目标的最近结果</small>
+            <div class="metric-icon green">↗</div>
+          </article>
+          <article class="metric">
+            <span>需要关注</span><strong id="metric-errors">—</strong
+            ><small>HTTP 异常、连接失败或超时</small>
+            <div class="metric-icon amber">!</div>
+          </article>
+          <article class="metric">
+            <span>平均响应时间</span><strong id="metric-latency">—</strong
+            ><small>所有保留样本的平均值</small>
+            <div class="metric-icon">⌁</div>
+          </article>
+        </section>
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>监测目标 <span id="target-count" class="count">0</span></h2>
+              <p>自动检查与手动检查，统一记录。</p>
+            </div>
+            <button id="refresh" class="button subtle">↻ 刷新</button>
+          </div>
+          <div class="toolbar">
+            <label class="search"
+              ><span>⌕</span
+              ><input
+                id="search"
+                type="search"
+                placeholder="搜索名称或网址"
+                aria-label="搜索名称或网址" /></label
+            ><select id="filter" aria-label="筛选状态">
+              <option value="all">全部状态</option>
+              <option value="healthy">正常</option>
+              <option value="error">异常</option>
+              <option value="paused">已暂停</option></select
+            ><span class="refresh-note">每 5 秒更新</span>
+          </div>
+          <div class="table-wrap">
+            <table class="targets-table">
+              <thead>
+                <tr>
+                  <th>目标</th>
+                  <th>当前状态</th>
+                  <th>最近响应</th>
+                  <th>样本可用率</th>
+                  <th>最近检查</th>
+                  <th class="actions-heading">操作</th>
+                </tr>
+              </thead>
+              <tbody id="targets"></tbody>
+            </table>
+          </div>
+          <div id="empty-state" class="empty-state" hidden>
+            <span class="empty-mark">⌁</span>
+            <h3 id="empty-title">还没有监测目标</h3>
+            <p id="empty-description">添加一个网址，开始记录它的每一次响应。</p>
+            <button id="empty-add" class="button primary">
+              添加第一个目标
+            </button>
+          </div>
+          <footer class="panel-footer">
+            <span><i class="status-dot"></i> 所有时间均为本机时间</span
+            ><span id="updated-at">尚未更新</span>
+          </footer>
+        </section>
+        <div class="footnote">
+          <span>● 正常</span><span>● 异常</span><span>● 暂停 / 待检查</span>
+          <p>可用率基于每个目标当前保留的样本，最多 1,000 条、30 天。</p>
+        </div>
+      </main>
+      <footer class="site-footer">
+        PULSE <span>让服务状态清晰可见。</span><span>LOCAL WORKSPACE</span>
+      </footer>
+    </div>
+    <dialog id="target-dialog">
+      <form id="target-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">MONITOR</p>
+            <h2 id="form-title">添加监测目标</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-close="target-dialog"
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        </div>
+        <p class="muted">设置检查频率，其他的交给 Pulse。</p>
+        <label
+          >目标名称<input
+            name="name"
+            required
+            maxlength="80"
+            placeholder="例如：我的网站"
+            autocomplete="off" /></label
+        ><label
+          >网址<input
+            name="url"
+            type="url"
+            required
+            maxlength="2048"
+            placeholder="https://example.com"
+            autocomplete="off"
+        /></label>
+        <div class="form-grid">
+          <label
+            >检查间隔（秒）<input
+              name="interval_seconds"
+              type="number"
+              required
+              min="5"
+              max="86400"
+              value="60" /></label
+          ><label
+            >超时上限（秒）<input
+              name="timeout_seconds"
+              type="number"
+              required
+              min="1"
+              max="30"
+              value="5"
+          /></label>
+        </div>
+        <label class="checkbox"
+          ><input name="enabled" type="checkbox" checked />
+          保存后启用自动监测</label
+        >
+        <p id="form-error" class="notice error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="button" data-close="target-dialog">
+            取消</button
+          ><button id="save-target" class="button primary" type="submit">
+            保存目标
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="history-dialog" class="history-dialog">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">CHECK HISTORY</p>
+          <h2 id="history-title">检查记录</h2>
+        </div>
+        <button
+          class="icon-button"
+          data-close="history-dialog"
+          aria-label="关闭历史"
+        >
+          ×
+        </button>
+      </div>
+      <p id="history-url" class="muted url-text"></p>
+      <div class="history-chart-heading">
+        <span>最近 30 次响应耗时</span
+        ><button id="history-refresh" class="button subtle">↻ 更新记录</button>
+      </div>
+      <svg
+        id="history-chart"
+        viewBox="0 0 800 140"
+        role="img"
+        aria-label="响应时间趋势"
+      ></svg>
+      <p class="muted small">
+        绿色为正常，红色为异常；耗时到最终响应头或请求失败为止。
+      </p>
+      <p id="history-error" class="notice error" role="alert" hidden></p>
+      <div class="history-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>检查时间</th>
+              <th>结果</th>
+              <th>状态码</th>
+              <th>耗时</th>
+              <th>说明 / 检查时地址</th>
+            </tr>
+          </thead>
+          <tbody id="history-rows"></tbody>
+        </table>
+      </div>
+      <p id="history-empty" class="muted" hidden>
+        还没有检查记录。可以先执行一次检查。
+      </p>
+      <div class="dialog-actions">
+        <button id="history-more" class="button">加载更早记录</button
+        ><button class="button primary" data-close="history-dialog">
+          完成
+        </button>
+      </div>
+    </dialog>
+    <dialog id="delete-dialog">
+      <div class="dialog-heading">
+        <h2>删除监测目标？</h2>
+        <button
+          class="icon-button"
+          data-close="delete-dialog"
+          aria-label="关闭删除确认"
+        >
+          ×
+        </button>
+      </div>
+      <p id="delete-description" class="muted"></p>
+      <p id="delete-error" class="notice error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button class="button" data-close="delete-dialog">取消</button
+        ><button id="confirm-delete" class="button danger">确认删除</button>
+      </div>
+    </dialog>
+    <dialog id="help-dialog">
+      <div class="dialog-heading">
+        <h2>开始使用 Pulse</h2>
+        <button
+          class="icon-button"
+          data-close="help-dialog"
+          aria-label="关闭说明"
+        >
+          ×
+        </button>
+      </div>
+      <ol class="help-list">
+        <li>添加完整的 HTTP 或 HTTPS 网址，并设置检查间隔和超时。</li>
+        <li>
+          启用目标后会自动检查；“立即检查”可以手动触发，暂停目标也可手动检查。
+        </li>
+        <li>
+          点击目标名称或“历史”查看记录。200–299 表示本次 HTTP
+          检查通过，不等于所有业务正常。
+        </li>
+        <li>
+          编辑不删除旧记录，历史会保留检查时的网址；删除目标则同时删除它的历史。
+        </li>
+      </ol>
+      <p class="muted">
+        页面仅供本机使用。请勿在监测网址中填写账号密码或敏感令牌。
+      </p>
+      <div class="dialog-actions">
+        <button class="button primary" data-close="help-dialog">知道了</button>
+      </div>
+    </dialog>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+/.tools/
+/.cache/
+/*.exe
+/coverage.out
+/data/
+/node_modules/
+/.npm-cache/
+/test-results/
+/playwright-report/
+/dist/
+*.out
+.DS_Store
+/pulse-go-monitor
+
+# Local learning materials must never be published.
+学习笔记/
+教学资料/
+学习记录/
+教程/
+tutorial/
+tutorials/
+learning-notes/
+learning_notes/
+*教学*
+*教程*
+*学习笔记*
+*学习记录*

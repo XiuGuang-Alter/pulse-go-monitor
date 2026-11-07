@@ -1,0 +1,8 @@
+goos: windows
+goarch: amd64
+pkg: github.com/XiuGuang-Alter/pulse-go-monitor
+cpu: 12th Gen Intel(R) Core(TM) i7-12700H
+BenchmarkStoreQueries/List100Targets1000SamplesEach-20         	       3	  64261900 ns/op	  491709 B/op	   11067 allocs/op
+BenchmarkStoreQueries/History50Of1000-20                       	       3	    146000 ns/op	   34152 B/op	     731 allocs/op
+PASS
+ok  	github.com/XiuGuang-Alter/pulse-go-monitor	1.695s
