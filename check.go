@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -12,16 +13,20 @@ import (
 
 // Result 描述一次检查。Duration 到最终响应头为止，不包含正文下载。
 type Result struct {
-	URL        string
-	StatusCode int
-	Duration   time.Duration
-	Kind       string
-	Detail     string
+	URL           string
+	StatusCode    int
+	Duration      time.Duration
+	Kind          string
+	Detail        string
+	TotalDuration time.Duration
 }
 
 // Check 只检查一次；timeout 覆盖连接、重定向和等待响应头。
 func Check(ctx context.Context, rawURL string, timeout time.Duration) Result {
-	result := Result{URL: rawURL}
+	return CheckWithRules(ctx, rawURL, timeout, CheckRules{})
+}
+func CheckWithRules(ctx context.Context, rawURL string, timeout time.Duration, rules CheckRules) (result Result) {
+	result = Result{URL: rawURL}
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil {
 		result.Kind = "invalid_input"
@@ -47,6 +52,7 @@ func Check(ctx context.Context, rawURL string, timeout time.Duration) Result {
 
 	client := &http.Client{}
 	started := time.Now()
+	defer func() { result.TotalDuration = time.Since(started) }()
 	response, err := client.Do(req)
 	result.Duration = time.Since(started)
 	if err != nil {
@@ -59,11 +65,40 @@ func Check(ctx context.Context, rawURL string, timeout time.Duration) Result {
 	defer response.Body.Close()
 	result.URL = response.Request.URL.String()
 	result.StatusCode = response.StatusCode
-	if response.StatusCode >= 200 && response.StatusCode <= 299 {
+	if rules.acceptsStatus(response.StatusCode) {
 		result.Kind, result.Detail = "ok", "本次 HTTP 检查通过"
 	} else {
 		result.Kind = "http_error"
 		result.Detail = fmt.Sprintf("HTTP 异常状态：%d %s", response.StatusCode, http.StatusText(response.StatusCode))
+		return result
+	}
+	if !rules.hasBody() {
+		return result
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
+	if err != nil {
+		result.Kind, result.Detail = "request_error", "正文读取失败"
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			result.Kind, result.Detail = "timeout", "正文读取超时"
+		}
+		return result
+	}
+	if len(body) > 1<<20 {
+		result.Kind, result.Detail = "body_too_large", "正文超过1MiB读取上限"
+		return result
+	}
+	err = evaluateBody(ctx, body, rules)
+	if ctx.Err() != nil {
+		result.Kind, result.Detail = "request_error", "检查已取消"
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			result.Kind, result.Detail = "timeout", "检查超时"
+		}
+		return result
+	}
+	if err != nil {
+		result.Kind, result.Detail = "assertion_failed", err.Error()
+	} else {
+		result.Detail = "HTTP与业务断言通过"
 	}
 	return result
 }
