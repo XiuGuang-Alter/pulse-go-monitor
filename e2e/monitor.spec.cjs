@@ -102,11 +102,22 @@ test('业务规则、精确值编辑与UTC日汇总',async({page,request},info)=
  await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);await page.screenshot({path:info.outputPath('rules-mobile.png')});
 });
 
+test('编辑名称保留正文和JSON路径中的LF与CRLF',async({page,request})=>{
+ for(const special of ['\n','\r\n']){
+  const name='特殊字符'+JSON.stringify(special);
+  const rules={body_contains:special,json_equals:[{pointer:'/line'+special+'key',equals:0}]};
+  const response=await request.post(base+'/api/targets',{data:{name,url:upstreamURL+'/ok',interval_seconds:60,timeout_seconds:1,enabled:false,rules}});expect(response.ok()).toBeTruthy();
+  const created=await response.json();await refresh(page);
+  await row(page,name).getByRole('button',{name:'编辑',exact:true}).click();await page.getByLabel('目标名称',{exact:true}).fill(name+'改名');await page.locator('#save-target').click();await expect(page.locator('#target-dialog')).not.toBeVisible();
+  expect((await list(request)).find(t=>t.id===created.id).rules).toEqual(rules);
+ }
+});
+
 test('首版数据库升级后标注不完整汇总且重启不重复累计',async({page,request})=>{
  await stop();for(const suffix of ['', '-wal','-shm'])await fs.rm(db+suffix,{force:true});
  const {DatabaseSync}=require('node:sqlite');const legacy=new DatabaseSync(db);
  legacy.exec(`CREATE TABLE targets(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,url TEXT NOT NULL,interval_seconds INTEGER NOT NULL,timeout_seconds INTEGER NOT NULL,enabled INTEGER NOT NULL,created_at INTEGER NOT NULL,next_check_at INTEGER NOT NULL,version INTEGER NOT NULL DEFAULT 1);
- CREATE TABLE checks(id INTEGER PRIMARY KEY AUTOINCREMENT,target_id INTEGER NOT NULL REFERENCES targets(id) ON DELETE CASCADE,input_url TEXT NOT NULL,final_url TEXT NOT NULL,status_code INTEGER NOT NULL,duration_ms REAL NOT NULL,kind TEXT NOT NULL,detail TEXT NOT NULL,checked_at INTEGER NOT NULL);PRAGMA user_version=1;`);
+ CREATE TABLE checks(id INTEGER PRIMARY KEY AUTOINCREMENT,target_id INTEGER NOT NULL REFERENCES targets(id) ON DELETE CASCADE,input_url TEXT NOT NULL,final_url TEXT NOT NULL,status_code INTEGER NOT NULL,duration_ms REAL NOT NULL,kind TEXT NOT NULL,detail TEXT NOT NULL,checked_at INTEGER NOT NULL);CREATE INDEX checks_target_id ON checks(target_id,id DESC);PRAGMA user_version=1;`);
  const now=Date.now();legacy.prepare('INSERT INTO targets VALUES(1,?,?,60,1,0,?,?,1)').run('迁移目标',upstreamURL+'/ok',now,now);legacy.prepare('INSERT INTO checks VALUES(1,1,?,?,200,12,\'ok\',\'旧样本\',?)').run(upstreamURL+'/ok',upstreamURL+'/ok',now);legacy.close();
  app=await launch(new URL(base).host);await refresh(page);await row(page,'迁移目标').getByRole('button',{name:'历史',exact:true}).click();await expect(page.locator('#daily-rows')).toContainText('迁移前历史不完整');
  const daily=await (await request.get(base+'/api/targets/1/daily?days=1')).json();expect(daily.buckets[0].samples).toBe(1);expect((await list(request))[0].latest.total_duration_ms).toBeNull();await page.getByRole('button',{name:'完成',exact:true}).click();

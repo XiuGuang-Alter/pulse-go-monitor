@@ -71,7 +71,7 @@ func migrateStore(ctx context.Context, db *sql.DB) error {
 	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=3"); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS checks_stats ON checks(target_id,checked_at,kind,duration_ms)"); err != nil {
+	if _, err = tx.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS checks_target_id ON checks(target_id,id DESC); CREATE INDEX IF NOT EXISTS checks_stats ON checks(target_id,checked_at,kind,duration_ms)"); err != nil {
 		return err
 	}
 	return tx.Commit()

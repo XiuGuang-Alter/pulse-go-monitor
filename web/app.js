@@ -314,8 +314,12 @@ function openForm(target = null) {
     else field.value = value;
   }
   $("rule-statuses").value=(target?.rules?.expected_statuses??[]).join(', ');
-  $("rule-contains").value=target?.rules?.body_contains??'';
-  state.ruleRows=(target?.rules?.json_equals??[]).map((rule,i)=>({pointer:rule.pointer,expected:target.rule_values_json?.[i]??JSON.stringify(rule.equals)}));
+  const contains=encodedRuleString(target?.rules?.body_contains??'');
+  state.containsEncoded=contains.encoded;
+  $("rule-contains").value=contains.text;
+  $("rule-contains").title=contains.encoded?'特殊字符使用JSON字符串编辑，请保留外层双引号和转义符':'';
+  $("rule-encoding-note").textContent=contains.encoded?'正文含控制字符，当前以JSON字符串显示；请保留外层双引号和转义符。':'';
+  state.ruleRows=(target?.rules?.json_equals??[]).map((rule,i)=>{const p=encodedRuleString(rule.pointer);return {pointer:p.text,pointerEncoded:p.encoded,expected:target.rule_values_json?.[i]??JSON.stringify(rule.equals)};});
   renderRuleRows();
   notice("form-error");
   $("target-dialog").showModal();
@@ -352,12 +356,14 @@ $("target-form").addEventListener("submit", async (event) => {
     endMutation();
   }
 });
-function captureRuleRows(){return state.ruleRows.map(row=>({pointer:row.pointerInput?.value??row.pointer,expected:row.valueInput?.value??row.expected}));}
+function encodedRuleString(value){return /[\u0000-\u001f\u007f]/.test(value)?{text:JSON.stringify(value),encoded:true}:{text:value,encoded:false};}
+function decodeRuleString(value,encoded){if(!encoded)return value;let parsed;try{parsed=JSON.parse(value);}catch{throw Error('含控制字符的规则应填写有效JSON字符串');}if(typeof parsed!=='string')throw Error('含控制字符的规则应填写JSON字符串');return parsed;}
+function captureRuleRows(){return state.ruleRows.map(row=>({pointer:row.pointerInput?.value??row.pointer,pointerEncoded:row.pointerEncoded,expected:row.valueInput?.value??row.expected}));}
 function renderRuleRows(){
   $("json-rule-rows").replaceChildren();
   state.ruleRows.forEach((rule,index)=>{
     const row=el('div','rule-row');
-    const pointerLabel=el('label','','JSON路径 '+(index+1));const pointer=el('input');pointer.value=rule.pointer;pointer.maxLength=256;pointer.setAttribute('aria-label','JSON路径 '+(index+1));pointerLabel.append(pointer);
+    const pointerLabel=el('label','','JSON路径 '+(index+1));const pointer=el('input');pointer.value=rule.pointer;pointer.setAttribute('aria-label','JSON路径 '+(index+1));pointerLabel.append(pointer);if(rule.pointerEncoded)pointerLabel.append(el('small','','控制字符：使用带双引号的JSON字符串编辑'));
     const valueLabel=el('label','','期望值 '+(index+1));const value=el('input');value.value=rule.expected;value.setAttribute('aria-label','期望值 '+(index+1));valueLabel.append(value);
     const remove=el('button','button subtle','移除规则 '+(index+1));remove.type='button';remove.addEventListener('click',()=>{state.ruleRows=captureRuleRows().filter((_,i)=>i!==index);renderRuleRows();});
     rule.pointerInput=pointer;rule.valueInput=value;row.append(pointerLabel,valueLabel,remove);$("json-rule-rows").append(row);
@@ -372,10 +378,10 @@ function rulePayload(){
   const assertions=captureRuleRows().map((rule,index)=>{
     let value;try{value=JSON.parse(rule.expected);}catch{throw Error('JSON规则'+(index+1)+'：期望值应为有效JSON标量');}
     if(value!==null&&typeof value==='object')throw Error('JSON规则'+(index+1)+'：暂不支持对象或数组作为期望值');
-    return '{"pointer":'+JSON.stringify(rule.pointer)+',"equals":'+rule.expected+'}';
+    return '{"pointer":'+JSON.stringify(decodeRuleString(rule.pointer,rule.pointerEncoded))+',"equals":'+rule.expected+'}';
   });
   // Keep the original numeric tokens; JSON.parse/stringify would round large integers.
-  return '{"expected_statuses":'+JSON.stringify(codes.map(Number))+',"body_contains":'+JSON.stringify($("rule-contains").value??'')+',"json_equals":['+assertions.join(',')+']}';
+  return '{"expected_statuses":'+JSON.stringify(codes.map(Number))+',"body_contains":'+JSON.stringify(decodeRuleString($("rule-contains").value??'',state.containsEncoded))+',"json_equals":['+assertions.join(',')+']}';
 }
 async function checkNow(target) {
   if (state.mutating) return;

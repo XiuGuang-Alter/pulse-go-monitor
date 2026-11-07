@@ -193,7 +193,8 @@
           <legend>业务规则（可选）</legend>
           <p class="muted small">所有规则均满足才通过；留空时仅检查HTTP 200–299。读取正文时最多1MiB，仍受超时限制。</p>
           <label>允许状态码<input id="rule-statuses" placeholder="例如：200, 204；留空为200–299" autocomplete="off" /></label>
-          <label>正文包含<input id="rule-contains" maxlength="256" placeholder="区分大小写，最多256字节" autocomplete="off" /></label>
+          <label>正文包含<input id="rule-contains" placeholder="区分大小写，最多256字节" autocomplete="off" /></label>
+          <small id="rule-encoding-note"></small>
           <div id="json-rule-rows"></div>
           <button id="add-json-rule" type="button" class="button subtle">添加JSON规则</button>
           <p class="muted small">JSON路径例如 /code、/items/0/ready；期望值使用JSON标量，例如0、true或"ready"。最多5条。</p>

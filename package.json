@@ -1,13 +1,17 @@
 {
   "name": "pulse-go-monitor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Development-only browser tests for Pulse",
   "scripts": {
-    "test": "node --test web_test.cjs scripts/launch-server.test.cjs scripts/check-public-files.test.cjs",
+    "test": "node --test web_test.cjs scripts/launch-server.test.cjs scripts/check-public-files.test.cjs scripts/soak-health.test.cjs",
     "build:e2e": "node scripts/build-e2e.cjs",
     "test:e2e": "npm run build:e2e && playwright test"
   },
-  "engines": { "node": ">=24" },
-  "devDependencies": { "@playwright/test": "1.65.0" }
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  }
 }

@@ -9,6 +9,26 @@ import (
 	"time"
 )
 
+func TestReopenRestoresRequiredHistoryIndex(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "index.db")
+	s, err := OpenStore(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.Exec("DROP INDEX checks_target_id"); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	s, err = OpenStore(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, err = s.ListTargets(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestMigrationVersion2AndFuture(t *testing.T) {
 	file := legacyDatabase(t)
 	db, _ := sql.Open("sqlite", file)
