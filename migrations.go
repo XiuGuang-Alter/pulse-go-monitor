@@ -36,7 +36,7 @@ func migrateStore(ctx context.Context, db *sql.DB) error {
 	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version > 3 {
+	if version > 4 {
 		return fmt.Errorf("数据库版本%d比程序支持的版本新", version)
 	}
 	now := time.Now().UTC()
@@ -67,8 +67,14 @@ func migrateStore(ctx context.Context, db *sql.DB) error {
    ALTER TABLE checks ADD COLUMN rules_snapshot TEXT;`); err != nil {
 			return err
 		}
+		version = 3
 	}
-	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=3"); err != nil {
+	if version == 3 {
+		if _, err = tx.ExecContext(ctx, "ALTER TABLE checks ADD COLUMN error_category TEXT"); err != nil {
+			return err
+		}
+	}
+	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=4"); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS checks_target_id ON checks(target_id,id DESC); CREATE INDEX IF NOT EXISTS checks_stats ON checks(target_id,checked_at,kind,duration_ms)"); err != nil {

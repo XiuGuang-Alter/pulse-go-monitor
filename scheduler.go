@@ -101,7 +101,7 @@ func (s *Scheduler) scheduleDue() {
 	targets, err := s.store.targets(ctx, "ORDER BY next_check_at,id")
 	if err != nil {
 		if s.ctx.Err() == nil {
-			log.Printf("读取到期目标失败: %v", err)
+			log.Printf("读取到期目标失败（%T）", err)
 			s.mu.Lock()
 			s.readRetryAt = time.Now().Add(time.Second)
 			s.readFailures++
@@ -216,7 +216,7 @@ func (s *Scheduler) launch(target Target) error {
 		defer cancel()
 		err := s.store.RecordCheck(ctx, target, result, checkedAt)
 		if err != nil && !errors.Is(err, ErrNotFound) && s.ctx.Err() == nil {
-			log.Printf("保存目标 %d 结果失败: %v", target.ID, err)
+			log.Printf("保存目标 %d 结果失败（%T）", target.ID, err)
 			s.mu.Lock()
 			s.retryAt[target.ID] = time.Now().Add(time.Second)
 			s.writeFailures[target.ID]++

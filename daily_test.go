@@ -42,12 +42,12 @@ func TestMigrationVersion2AndFuture(t *testing.T) {
 	}
 	var v int
 	s.db.QueryRow("PRAGMA user_version").Scan(&v)
-	if v != 3 {
+	if v != 4 {
 		t.Fatal(v)
 	}
 	s.Close()
 	db, _ = sql.Open("sqlite", file)
-	db.Exec("PRAGMA user_version=4")
+	db.Exec("PRAGMA user_version=5")
 	db.Close()
 	if s, err := OpenStore(file); err == nil {
 		s.Close()
@@ -103,8 +103,8 @@ func TestMigrationLegacyAndRollback(t *testing.T) {
 	defer func() { s.Close() }()
 	var version int
 	s.db.QueryRow("PRAGMA user_version").Scan(&version)
-	if version != 3 {
-		t.Fatalf("version=%d want3", version)
+	if version != 4 {
+		t.Fatalf("version=%d want4", version)
 	}
 	rows, err := s.History(context.Background(), 7, 10, 0)
 	if err != nil || len(rows) != 1 || rows[0].ID != 11 {

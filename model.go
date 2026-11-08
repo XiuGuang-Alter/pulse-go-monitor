@@ -54,6 +54,7 @@ type CheckRecord struct {
 	StatusCode      int             `json:"status_code"`
 	DurationMS      float64         `json:"duration_ms"`
 	Kind            string          `json:"kind"`
+	ErrorCategory   string          `json:"error_category"`
 	Detail          string          `json:"detail"`
 	CheckedAt       int64           `json:"checked_at"`
 	TotalDurationMS *float64        `json:"total_duration_ms"`

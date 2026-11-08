@@ -195,6 +195,7 @@
           <label>允许状态码<input id="rule-statuses" placeholder="例如：200, 204；留空为200–299" autocomplete="off" /></label>
           <label>正文包含<input id="rule-contains" placeholder="区分大小写，最多256字节" autocomplete="off" /></label>
           <small id="rule-encoding-note"></small>
+ <small>正文包含、JSON路径及字符串期望值各最多256个UTF-8字节；JSON期望值仅支持标量。</small>
           <div id="json-rule-rows"></div>
           <button id="add-json-rule" type="button" class="button subtle">添加JSON规则</button>
           <p class="muted small">JSON路径例如 /code、/items/0/ready；期望值使用JSON标量，例如0、true或"ready"。最多5条。</p>
@@ -224,6 +225,7 @@
         </button>
       </div>
       <p id="history-url" class="muted url-text"></p>
+ <p id="error-categories" class="muted small"></p>
       <div class="history-chart-heading">
         <span>最近 30 次响应耗时</span
         ><button id="history-refresh" class="button subtle">↻ 更新记录</button>
@@ -310,7 +312,7 @@
         </li>
       </ol>
       <p class="muted">
-        页面仅供本机使用。请勿在监测网址中填写账号密码或敏感令牌。
+        页面仅供本机使用。普通展示隐藏常见敏感查询参数；进入编辑会显示原始配置。原始配置API、数据库和完整备份可能含敏感值，脱敏不等于加密或鉴权。
       </p>
       <div class="dialog-actions">
         <button class="button primary" data-close="help-dialog">知道了</button>

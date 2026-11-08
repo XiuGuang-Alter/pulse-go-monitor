@@ -28,6 +28,7 @@ func run(args []string, out io.Writer, errOut io.Writer) int {
 	}
 
 	result := Check(context.Background(), args[0], defaultTimeout)
+	result.Detail = safeDetail(result.Kind, result.StatusCode, result.Detail)
 	if result.Kind == "invalid_input" {
 		fmt.Fprintln(errOut, "输入无效："+result.Detail)
 		return 2
@@ -37,7 +38,7 @@ func run(args []string, out io.Writer, errOut io.Writer) int {
 	if result.Kind != "ok" {
 		writer = errOut
 	}
-	fmt.Fprintln(writer, "网址："+result.URL)
+	fmt.Fprintln(writer, "网址："+redactURL(result.URL))
 	if result.StatusCode != 0 {
 		fmt.Fprintf(writer, "HTTP 状态码：%d\n", result.StatusCode)
 	}
@@ -47,6 +48,9 @@ func run(args []string, out io.Writer, errOut io.Writer) int {
 		fmt.Fprintf(writer, "耗时（到最终响应头）：%.2f ms\n", float64(result.Duration)/float64(time.Millisecond))
 	}
 	fmt.Fprintln(writer, "结果："+result.Detail)
+	if result.ErrorCategory != "" {
+		fmt.Fprintln(writer, "错误分类："+safeCategoryLabel(result.ErrorCategory))
+	}
 	if result.Kind == "ok" {
 		return 0
 	}

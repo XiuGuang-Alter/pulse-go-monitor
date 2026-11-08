@@ -25,31 +25,59 @@ type JSONAssertion struct {
 
 func parseRules(raw json.RawMessage) (CheckRules, error) {
 	var rules CheckRules
-	invalid := func() (CheckRules, error) {
-		return CheckRules{}, fmt.Errorf("%w：检查规则无效或超过限制", ErrValidation)
+	invalid := func(reason string) (CheckRules, error) {
+		return CheckRules{}, fmt.Errorf("%w：%s", ErrValidation, reason)
+	}
+	invalidRule := func(index int, reason string) (CheckRules, error) {
+		return invalid(fmt.Sprintf("JSON规则%d：%s", index+1, reason))
 	}
 	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return rules, nil
 	}
-	value, err := decodeStrictJSON(context.Background(), raw)
-	if err != nil {
-		return invalid()
+	if !utf8.Valid(raw) || !json.Valid(raw) {
+		return invalid("检查规则：需要有效的UTF-8 JSON，控制字符须显式转义")
 	}
-	if _, ok := value.(map[string]any); !ok {
-		return invalid()
+	// Decode fields separately so errors identify only trusted field names and
+	// rule numbers. Never return decoder errors, which can contain user input.
+	var fields struct {
+		ExpectedStatuses json.RawMessage `json:"expected_statuses"`
+		BodyContains     json.RawMessage `json:"body_contains"`
+		JSONEquals       json.RawMessage `json:"json_equals"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(&rules); err != nil {
-		return invalid()
+	if err := decoder.Decode(&fields); err != nil {
+		return invalid("检查规则：需要JSON对象，仅支持expected_statuses、body_contains和json_equals，不允许未知字段")
 	}
-	if len(rules.ExpectedStatuses) > 10 || len(rules.BodyContains) > 256 || len(rules.JSONEquals) > 5 {
-		return invalid()
+	if len(fields.ExpectedStatuses) > 0 {
+		if err := json.Unmarshal(fields.ExpectedStatuses, &rules.ExpectedStatuses); err != nil {
+			return invalid("expected_statuses：需要200–599的整数数组，最多10项")
+		}
+	}
+	if len(rules.ExpectedStatuses) > 10 {
+		return invalid("expected_statuses：最多10项状态码")
+	}
+	if len(fields.BodyContains) > 0 {
+		if err := json.Unmarshal(fields.BodyContains, &rules.BodyContains); err != nil {
+			return invalid("body_contains：需要字符串，最长256个UTF-8字节")
+		}
+	}
+	if len(rules.BodyContains) > 256 {
+		return invalid("body_contains：最长256个UTF-8字节，按字节而非字符计数")
+	}
+	var assertions []json.RawMessage
+	if len(fields.JSONEquals) > 0 {
+		if err := json.Unmarshal(fields.JSONEquals, &assertions); err != nil {
+			return invalid("json_equals：需要JSON规则数组，最多5项")
+		}
+	}
+	if len(assertions) > 5 {
+		return invalid("json_equals：最多5项JSON规则")
 	}
 	codes := map[int]bool{}
 	for _, code := range rules.ExpectedStatuses {
 		if code < 200 || code > 599 {
-			return invalid()
+			return invalid("expected_statuses：状态码范围为200–599")
 		}
 		codes[code] = true
 	}
@@ -58,23 +86,46 @@ func parseRules(raw json.RawMessage) (CheckRules, error) {
 		rules.ExpectedStatuses = append(rules.ExpectedStatuses, code)
 	}
 	sort.Ints(rules.ExpectedStatuses)
-	for _, assertion := range rules.JSONEquals {
-		if _, err = pointerTokens(assertion.Pointer); err != nil || len(assertion.Equals) == 0 {
-			return invalid()
+	for index, rawAssertion := range assertions {
+		var assertion JSONAssertion
+		decoder := json.NewDecoder(bytes.NewReader(rawAssertion))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&assertion); err != nil {
+			var typeError *json.UnmarshalTypeError
+			if errors.As(err, &typeError) && typeError.Field == "pointer" {
+				return invalidRule(index, "pointer：需要JSON Pointer字符串，最长256个UTF-8字节")
+			}
+			return invalidRule(index, "需要规则对象，仅支持pointer和equals，不允许未知字段；pointer须为字符串")
+		}
+		if len(assertion.Pointer) > 256 {
+			return invalidRule(index, "pointer：最长256个UTF-8字节，按字节而非字符计数")
+		}
+		if _, err := pointerTokens(assertion.Pointer); err != nil {
+			return invalidRule(index, "pointer：需要有效JSON Pointer，留空表示根值，否则以/开头；~须转义为~0，/须转义为~1")
+		}
+		if len(assertion.Equals) == 0 {
+			return invalidRule(index, "equals：必须填写JSON标量（字符串、数字、布尔值或null），不支持对象或数组")
 		}
 		expected, e := decodeStrictJSON(context.Background(), assertion.Equals)
 		if e != nil {
-			return invalid()
+			return invalidRule(index, "equals：需要有效JSON标量；数字最长256字节，指数范围为-1000至1000")
 		}
 		switch v := expected.(type) {
 		case nil, bool, json.Number:
 		case string:
 			if len(v) > 256 {
-				return invalid()
+				return invalidRule(index, "equals：字符串最长256个UTF-8字节，按字节而非字符计数")
 			}
 		default:
-			return invalid()
+			return invalidRule(index, "equals：仅支持JSON标量（字符串、数字、布尔值或null），不支持对象或数组")
 		}
+		if _, err := decodeStrictJSON(context.Background(), rawAssertion); err != nil {
+			return invalidRule(index, "JSON格式无效、含重复字段或超过解析限制")
+		}
+		rules.JSONEquals = append(rules.JSONEquals, assertion)
+	}
+	if _, err := decodeStrictJSON(context.Background(), raw); err != nil {
+		return invalid("检查规则：JSON格式无效、含重复字段或超过解析限制")
 	}
 	return rules, nil
 }

@@ -191,3 +191,49 @@ test('M1 浏览器墙钟偏移不改变服务端新鲜度',async({page,request})
  await refresh(page);
  await expect(page.locator('#metric-healthy')).toHaveText('1');
 });
+
+
+test('M2 普通展示脱敏而编辑启停和实际请求保留原值',async({page,request})=>{
+ const requests=[];const capture=req=>requests.push(req.url);upstream.on('request',capture);
+ const secretURL='/ok?Token=fake-token&%61pi_key=fake-key&sig=signed%2Bvalue&x=a%20b#fake-fragment';
+ await add(page,'脱敏目标',secretURL,false);
+ await expect(row(page,'脱敏目标')).toContainText('REDACTED');
+ expect(await page.locator('body').innerText()).not.toContain('fake-token');
+ expect(await row(page,'脱敏目标').locator('.target-url').getAttribute('title')).not.toContain('fake-key');
+ await row(page,'脱敏目标').getByRole('button',{name:'恢复',exact:true}).click();
+ await expect.poll(async()=> (await list(request))[0]?.latest?.kind).toBe('ok');
+ expect(requests).toContain('/ok?Token=fake-token&%61pi_key=fake-key&sig=signed%2Bvalue&x=a%20b');
+ expect((await list(request))[0].url).toBe(upstreamURL+secretURL);
+ await row(page,'脱敏目标').getByRole('button',{name:'历史',exact:true}).click();
+ await expect(page.locator('#history-rows')).toContainText('REDACTED');
+ expect(await page.locator('#history-dialog').innerText()).not.toContain('fake-token');
+ await page.getByRole('button',{name:'完成',exact:true}).click();
+ await row(page,'脱敏目标').getByRole('button',{name:'编辑',exact:true}).click();
+ await expect(page.getByLabel('网址',{exact:true})).toHaveValue(upstreamURL+secretURL);
+ await page.getByLabel('目标名称',{exact:true}).fill('脱敏编辑后');
+ await page.locator('#save-target').click();
+ expect((await list(request))[0].url).toBe(upstreamURL+secretURL);
+ upstream.off('request',capture);
+});
+
+test('M2 无效规则指出编号并保留表单输入',async({page})=>{
+ await page.locator('#add-target').click();
+ await page.getByLabel('目标名称',{exact:true}).fill('输入保留');await page.getByLabel('网址',{exact:true}).fill(upstreamURL+'/ok');
+ await page.locator('#add-json-rule').click();
+ await page.getByLabel('JSON路径 1',{exact:true}).fill('bad-pointer');
+ await page.getByLabel('期望值 1',{exact:true}).fill('123456789012345678901234567890');
+ await page.locator('#save-target').click();
+ await expect(page.locator('#form-error')).toContainText('JSON规则1');
+ await expect(page.getByLabel('目标名称',{exact:true})).toHaveValue('输入保留');
+ await expect(page.getByLabel('期望值 1',{exact:true})).toHaveValue('123456789012345678901234567890');
+});
+
+
+test('M2 历史展示结构化分类与保留明细统计范围',async({page,request})=>{
+ await add(page,'分类目标','/error');
+ await expect.poll(async()=> (await list(request))[0]?.latest?.error_category).toBe('http_5xx');
+ await refresh(page);await row(page,'分类目标').getByRole('button',{name:'历史',exact:true}).click();
+ await expect(page.locator('#history-rows')).toContainText('错误分类：HTTP 5xx');
+ await expect(page.locator('#error-categories')).toContainText('仅当前保留明细，非30日全量');
+ await expect(page.locator('#error-categories')).toContainText('HTTP 5xx');
+});

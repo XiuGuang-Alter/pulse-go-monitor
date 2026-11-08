@@ -52,7 +52,7 @@ func apiError(w http.ResponseWriter, err error) {
 		status = 503
 		message = err.Error()
 	default:
-		log.Printf("API错误: %v", err)
+		log.Printf("API内部错误（%T）", err)
 	}
 	jsonResponse(w, status, map[string]string{"error": message})
 }
@@ -106,7 +106,11 @@ func (a *App) Handler() http.Handler {
 			freshness := targetFreshness(targets[i], now)
 			targets[i].Freshness = &freshness
 		}
-		jsonResponse(w, 200, targets)
+		display := make([]displayTarget, 0, len(targets))
+		for _, target := range targets {
+			display = append(display, targetForDisplay(target))
+		}
+		jsonResponse(w, 200, display)
 	})
 	mux.HandleFunc("POST /api/targets", func(w http.ResponseWriter, r *http.Request) {
 		in, err := decodeInput(w, r)
@@ -119,7 +123,7 @@ func (a *App) Handler() http.Handler {
 			apiError(w, err)
 			return
 		}
-		jsonResponse(w, 201, target)
+		jsonResponse(w, 201, targetForDisplay(target))
 		a.scheduler.Notify()
 	})
 	mux.HandleFunc("PUT /api/targets/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +142,7 @@ func (a *App) Handler() http.Handler {
 			apiError(w, err)
 			return
 		}
-		jsonResponse(w, 200, target)
+		jsonResponse(w, 200, targetForDisplay(target))
 		a.scheduler.Notify()
 	})
 	mux.HandleFunc("DELETE /api/targets/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -193,11 +197,19 @@ func (a *App) Handler() http.Handler {
 			apiError(w, err)
 			return
 		}
+		for i := range records {
+			records[i] = safeCheck(records[i])
+		}
 		var next int64
 		if len(records) == limit {
 			next = records[len(records)-1].ID
 		}
-		jsonResponse(w, 200, map[string]any{"items": records, "next_before_id": next})
+		categories, err := a.store.ErrorCategories(r.Context(), id)
+		if err != nil {
+			apiError(w, err)
+			return
+		}
+		jsonResponse(w, 200, map[string]any{"items": records, "next_before_id": next, "error_categories": categories, "category_scope": "retained_checks"})
 	})
 	mux.HandleFunc("GET /api/targets/{id}/daily", func(w http.ResponseWriter, r *http.Request) {
 		id, err := targetID(r)

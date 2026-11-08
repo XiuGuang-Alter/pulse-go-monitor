@@ -45,7 +45,7 @@ func OpenStore(path string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 const targetColumns = `id,name,url,interval_seconds,timeout_seconds,enabled,created_at,next_check_at,version,rules`
-const checkColumns = `id,target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot`
+const checkColumns = `id,target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot,error_category`
 
 type rowScanner interface{ Scan(...any) error }
 
@@ -225,7 +225,7 @@ func (s *Store) RecordCheck(ctx context.Context, t Target, r Result, checkedAt t
 	if len(rules) == 0 {
 		rules = json.RawMessage(`{}`)
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO checks(target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, t.ID, t.URL, r.URL, r.StatusCode, float64(r.Duration)/float64(time.Millisecond), r.Kind, r.Detail, checkedAt.UnixMilli(), total, t.Version, string(rules))
+	_, err = tx.ExecContext(ctx, `INSERT INTO checks(target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot,error_category) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, t.ID, t.URL, r.URL, r.StatusCode, float64(r.Duration)/float64(time.Millisecond), r.Kind, r.Detail, checkedAt.UnixMilli(), total, t.Version, string(rules), normalizedErrorCategory(r.Kind, r.StatusCode, r.ErrorCategory))
 	if err != nil {
 		return err
 	}
@@ -269,10 +269,35 @@ func (s *Store) history(ctx context.Context, id int64, limit int, before int64) 
 }
 func scanCheck(row rowScanner) (CheckRecord, error) {
 	var r CheckRecord
-	var snapshot sql.NullString
-	err := row.Scan(&r.ID, &r.TargetID, &r.InputURL, &r.FinalURL, &r.StatusCode, &r.DurationMS, &r.Kind, &r.Detail, &r.CheckedAt, &r.TotalDurationMS, &r.ConfigVersion, &snapshot)
+	var snapshot, category sql.NullString
+	err := row.Scan(&r.ID, &r.TargetID, &r.InputURL, &r.FinalURL, &r.StatusCode, &r.DurationMS, &r.Kind, &r.Detail, &r.CheckedAt, &r.TotalDurationMS, &r.ConfigVersion, &snapshot, &category)
 	if snapshot.Valid {
 		r.RulesSnapshot = json.RawMessage(snapshot.String)
 	}
+	r.ErrorCategory = normalizedErrorCategory(r.Kind, r.StatusCode, category.String)
 	return r, err
+}
+
+// ErrorCategories counts failed samples in the currently retained detail range.
+// Daily rollups are deliberately excluded because evicted detail has no category.
+func (s *Store) ErrorCategories(ctx context.Context, id int64) (map[string]int, error) {
+	if _, err := s.GetTarget(ctx, id); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT kind,status_code,error_category,COUNT(*) FROM checks WHERE target_id=? AND checked_at>=? AND kind<>'ok' GROUP BY kind,status_code,error_category`, id, time.Now().Add(-30*24*time.Hour).UnixMilli())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var kind string
+		var status, count int
+		var category sql.NullString
+		if err = rows.Scan(&kind, &status, &category, &count); err != nil {
+			return nil, err
+		}
+		out[normalizedErrorCategory(kind, status, category.String)] += count
+	}
+	return out, rows.Err()
 }

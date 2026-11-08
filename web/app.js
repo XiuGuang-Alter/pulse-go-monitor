@@ -18,6 +18,7 @@ const state = {
   historyBusy: false,
   ruleRows: [],
 };
+const categories = {dns:"DNS解析",connection:"连接",tls:"TLS",timeout:"超时",http_4xx:"HTTP 4xx",http_5xx:"HTTP 5xx",http_other:"其他HTTP",body_read:"正文读取",body_too_large:"正文超限",assertion:"业务断言",input:"输入",unknown:"未知/旧分类"};
 const kinds = {
   ok: "正常",
   http_error: "HTTP 异常",
@@ -121,10 +122,11 @@ function targetState(target) {
     target.latest.kind === "ok" ? "ok" : "error",
   ];
 }
+function displayURL(target) { return target.display_url ?? "[展示地址不可用]"; }
 function matches(target) {
   if (
     state.search &&
-    !`${target.name} ${target.url}`
+    !`${target.name} ${displayURL(target)}`
       .toLowerCase()
       .includes(state.search.toLowerCase())
   )
@@ -168,8 +170,8 @@ function render() {
     const name = el("td"),
       title = button(target.name, () => openHistory(target), "target-title");
     title.title = "查看检查历史";
-    name.append(title, el("span", "target-url", target.url));
-    name.lastChild.title = target.url;
+    name.append(title, el("span", "target-url", displayURL(target)));
+    name.lastChild.title = displayURL(target);
     row.append(name);
     const status = el("td");
     status.dataset.label = "当前状态";
@@ -479,7 +481,8 @@ function openHistory(target) {
   state.cursor = 0;
   state.historyBusy = false;
   $("history-title").textContent = target.name;
-  $("history-url").textContent = target.url;
+  $("history-url").textContent = displayURL(target);
+ $("error-categories").textContent="正在读取保留明细错误分类…";
   $("history-rows").replaceChildren();
   $("history-chart").replaceChildren();
   $("history-empty").hidden = true;
@@ -508,6 +511,7 @@ async function loadHistory(more) {
     state.cursor = result.next_before_id;
     renderHistory();
     if(daily)renderDaily(daily);
+ if(!more)$("error-categories").textContent="错误分类（仅当前保留明细，非30日全量）："+(Object.entries(result.error_categories??{}).map(([key,count])=>(categories[key]??"未知")+" "+count).join(" · ")||"无失败样本");
     $("history-more").hidden = !state.cursor;
   } catch (error) {
     if (token === state.historyToken) notice("history-error", error.message);
@@ -536,6 +540,7 @@ function renderHistory() {
       el("td", "number", item.total_duration_ms==null?'—':ms(item.total_duration_ms)),
     );
     const detail = el("td", "history-detail", item.detail);
+    if(item.error_category) detail.append(el("small", "", "错误分类："+(categories[item.error_category]??"未知")));
     detail.append(el("small", "", item.input_url));
     detail.append(el("small", "", item.config_version==null?'首版HTTP判定':('配置版本 '+item.config_version+' · 按当次规则判定')));
     if (item.final_url !== item.input_url && item.final_url)
