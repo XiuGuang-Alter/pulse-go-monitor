@@ -4,7 +4,7 @@
   "private": true,
   "description": "Development-only browser tests for Pulse",
   "scripts": {
-    "test": "node --test web_test.cjs scripts/launch-server.test.cjs scripts/check-public-files.test.cjs scripts/soak-health.test.cjs scripts/soak-integration.test.cjs",
+    "test": "node --test web_test.cjs scripts/launch-server.test.cjs scripts/check-public-files.test.cjs scripts/soak-health.test.cjs scripts/soak-integration.test.cjs e2e/config-options.node.cjs scripts/performance-v12.test.cjs",
     "build:e2e": "node scripts/build-e2e.cjs",
     "test:e2e": "npm run build:e2e && playwright test"
   },

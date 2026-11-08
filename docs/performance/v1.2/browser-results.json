@@ -1,0 +1,816 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-11-08T14:52:03.821Z",
+  "scope": "Synthetic loopback desktop browser automation; narrow viewports are not physical-device evidence.",
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "node": "v24.15.0",
+    "playwright": "1.65.0",
+    "browserCache": ".cache/pw-browsers"
+  },
+  "candidate": {
+    "baseCommit": "4fe3b6b6979fd19a8c2772a191de29cb36a82832",
+    "productFingerprint": "3dbdbb5f55c3f1505a50fce0b19305923c82a9a91ea426a376fe2fd488aa5c78",
+    "productFiles": [
+      {
+        "file": "backup.go",
+        "sha256": "55073abbc311ec9dddfae29dbbb13781abc5663a83ccfb847af469ddf4044971"
+      },
+      {
+        "file": "check.go",
+        "sha256": "2b678dfee2aca95b8fe7c36af4b21a9ba15abc79a03af89d3d63f3d9cbaca7f1"
+      },
+      {
+        "file": "daily.go",
+        "sha256": "6cd6d0a8c637fe912f2c1bfd24baf09c80c3c0a034c8034482bcef0db2941387"
+      },
+      {
+        "file": "freshness.go",
+        "sha256": "137d4ece9ace5862e6382c733a4717734a8a41241c9f78eb9718027c596cfa0a"
+      },
+      {
+        "file": "go.mod",
+        "sha256": "6f9333b8634c03170230f574217f0479e0d33f733ec388fd723f96ee8bb92e4b"
+      },
+      {
+        "file": "go.sum",
+        "sha256": "7fbcf8309a8a2b2e92a37c6928e485a2309850549841872aa2c5b4848a7c85ea"
+      },
+      {
+        "file": "main.go",
+        "sha256": "6be940f66e71ce9e8bba3858f54ec1aba4d3c8f7c73d2a561abdb988fb56a935"
+      },
+      {
+        "file": "maintenance_cli.go",
+        "sha256": "49bd07bc598147696f3a9175266399deddbc2f3805443017030ec7a397618868"
+      },
+      {
+        "file": "maintenance_source.go",
+        "sha256": "480a531df8aadb4546f8f80fcc1a3f5cccfa2b9c3d998c7c53e6ccfaecd51237"
+      },
+      {
+        "file": "migrations.go",
+        "sha256": "26e5b768418eec0f54ccd200faa748dbaf6fd017eb75acc90a26d8031eeba887"
+      },
+      {
+        "file": "model.go",
+        "sha256": "06809d2f59725d9f4df56e9b0f8acde71657e3f000b7abf910f117444bab864b"
+      },
+      {
+        "file": "monitor_health.go",
+        "sha256": "c6bcefca27ec3e76ebaf548b4d05b6c5a538a7e1a1bebaa1fc5a8f106d268323"
+      },
+      {
+        "file": "redaction.go",
+        "sha256": "eff6f0c30410612e1579553152cd257a3e5bf9074fa4fbf08c13a4e12139d9fb"
+      },
+      {
+        "file": "retention.go",
+        "sha256": "bd5f79ff29ff5d9da1675356066c9fea42e166f4751ed54913a1738279c60a3c"
+      },
+      {
+        "file": "rules.go",
+        "sha256": "71ad10e2d44afc0279ccd12c30d20501637693d3d00be27fc1b128f2da6c2040"
+      },
+      {
+        "file": "rules_json.go",
+        "sha256": "7851ab6c3b48198d1e8433ba0446afc6009dc75ab4be0f34f0e94ca9a5125b26"
+      },
+      {
+        "file": "scheduler.go",
+        "sha256": "9cc91042b27374466a9fd1ef535886f98d4f13e6663a1cc3b84f221c319a7aab"
+      },
+      {
+        "file": "serve.go",
+        "sha256": "38122b167cec2ca1e00f0e74a353c87912de201ecec6ef698871b332bb363a46"
+      },
+      {
+        "file": "server.go",
+        "sha256": "d7ea6349b2443503b79095e4a51ede96b46a6cb52e55e7d8883368963d3ad978"
+      },
+      {
+        "file": "store.go",
+        "sha256": "d4c9f5feaceb19257f4f180526f0ee0c5d104e930e800d4e20aa412e6db89eae"
+      },
+      {
+        "file": "transfer.go",
+        "sha256": "74bade699ba2b0302ddb8317f46259566835e0837f99503978956e410093b626"
+      },
+      {
+        "file": "web/app.js",
+        "sha256": "b59e89ac479182e13432e70c397be9a564f923d70e61ac100987e3756e63aa50"
+      },
+      {
+        "file": "web/index.html",
+        "sha256": "0413b191ac5fc52c90ebadff4b28885d002c49958fec8004846c2a90952082f4"
+      },
+      {
+        "file": "web/style.css",
+        "sha256": "908110093f8eb2d82e40e5e03582601eda5056e1eee8588c47d5fdb494723b68"
+      }
+    ],
+    "harnessFingerprint": "2acbf15b3431153676068cc8e0203176294ce53c55e04bea1e01ae24977c6787",
+    "harnessFiles": [
+      {
+        "file": "e2e/config-options.node.cjs",
+        "sha256": "3124496b9922d48106198819af00c8be873208303afe897237a8cce48cf06ca9"
+      },
+      {
+        "file": "e2e/monitor.spec.cjs",
+        "sha256": "47cf5fcda5c66dbc07cf1b75be66f98f6ad977cc69e7cfa0036e4f89bf852e86"
+      },
+      {
+        "file": "playwright.config.cjs",
+        "sha256": "3df3f05ca28e68e8396d979443f5d76f3a0871d60e271de6c8c849c0160de1ac"
+      },
+      {
+        "file": "scripts/build-e2e.cjs",
+        "sha256": "59c473b683c364af0281d2e979f02a119549330bb1deaed2ded76bdd9ff997f3"
+      },
+      {
+        "file": "scripts/launch-server.cjs",
+        "sha256": "6dc7b61a2d0698e4605c446b433f94f5f2d86854afc4de0574e2ceec5350d5ac"
+      }
+    ],
+    "binarySHA256": "9062ba8d91bff446db7a84e28542d08b3b4d81f02810a17c11b0c8ebceb3f77a",
+    "workingTreeHadUncommittedChanges": true,
+    "fingerprintAlgorithm": "SHA-256 of JSON.stringify(sorted array of relative file and SHA-256 content pairs). Product scope: non-test root Go files, go.mod/go.sum and all web files.",
+    "productSourceStable": true,
+    "harnessSourceStable": true,
+    "binaryStable": true
+  },
+  "browserInstallation": {
+    "firefox": {
+      "source": "https://cdn.playwright.dev/dbazure/download/playwright/builds/firefox/1572/firefox-win64.zip",
+      "version": "159.0",
+      "build": "1572",
+      "destination": ".cache/pw-browsers",
+      "firstAttemptSucceeded": true
+    },
+    "edge": {
+      "source": "Existing system installation selected by Playwright channel msedge"
+    },
+    "chromium": {
+      "source": "Existing project Playwright cache"
+    }
+  },
+  "versionMeasurement": "Separate real headless launch using the same browser engine/channel as each test run; browser.version().",
+  "configurationTests": {
+    "command": "node --test e2e/config-options.node.cjs",
+    "passed": 5,
+    "failed": 0,
+    "redBeforeImplementation": {
+      "passed": 0,
+      "failed": 5,
+      "reason": "Configuration had no selectable project and ignored unknown PULSE_BROWSER."
+    }
+  },
+  "runs": [
+    {
+      "browser": "chromium",
+      "engine": "chromium",
+      "channel": null,
+      "version": "158.0.8127.18",
+      "headless": true,
+      "firstExecution": true,
+      "firstExecutionInReportedEnvironment": true,
+      "retries": 0,
+      "executionPermissions": "restricted sandbox",
+      "command": "npx playwright test --reporter=json",
+      "startTime": "2026-11-08T14:44:17.521Z",
+      "durationMs": 18686.737999999998,
+      "passed": 14,
+      "failed": 0,
+      "flaky": 0,
+      "skipped": 0,
+      "rawReportSHA256": "2afe83472e582db409f8a3d7e954fc6bd9d2e40ba56421aa6274fd6bc457dfa4",
+      "tests": [
+        {
+          "title": "保存后的刷新未完成时添加按钮禁用，完成后能打开表单",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 775
+            }
+          ]
+        },
+        {
+          "title": "完整管理流程、校验、异常和筛选",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3697
+            }
+          ]
+        },
+        {
+          "title": "55条历史分页、重开、切换、删除及手机布局",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2236
+            }
+          ]
+        },
+        {
+          "title": "真实服务断开、页面保留数据、同库重启恢复",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 697
+            }
+          ]
+        },
+        {
+          "title": "业务规则、精确值编辑与UTC日汇总",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1757
+            }
+          ]
+        },
+        {
+          "title": "编辑名称保留正文和JSON路径中的LF与CRLF",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 693
+            }
+          ]
+        },
+        {
+          "title": "首版数据库升级后标注不完整汇总且重启不重复累计",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 577
+            }
+          ]
+        },
+        {
+          "title": "M1 工具退化、结果陈旧和断连不展示当前正常",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 724
+            }
+          ]
+        },
+        {
+          "title": "M1 状态接口延迟不能延长目标结果有效期",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2781
+            }
+          ]
+        },
+        {
+          "title": "M1 浏览器墙钟偏移不改变服务端新鲜度",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 620
+            }
+          ]
+        },
+        {
+          "title": "M2 普通展示脱敏而编辑启停和实际请求保留原值",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 893
+            }
+          ]
+        },
+        {
+          "title": "M2 无效规则指出编号并保留表单输入",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 534
+            }
+          ]
+        },
+        {
+          "title": "M2 历史展示结构化分类与保留明细统计范围",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 662
+            }
+          ]
+        },
+        {
+          "title": "M3 保留范围与维护指引在窄屏可读",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1013
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "browser": "firefox",
+      "engine": "firefox",
+      "channel": null,
+      "version": "159.0",
+      "headless": true,
+      "firstExecution": false,
+      "firstExecutionInReportedEnvironment": true,
+      "retries": 0,
+      "executionPermissions": "normal host permissions",
+      "command": "PULSE_BROWSER=firefox npx playwright test --reporter=json",
+      "startTime": "2026-11-08T14:51:14.625Z",
+      "durationMs": 28326.261000000002,
+      "passed": 14,
+      "failed": 0,
+      "flaky": 0,
+      "skipped": 0,
+      "rawReportSHA256": "e8f8c4be07b1e9af17b0449a9f0cdc159d7a51204dd2a09af534b639660ef497",
+      "tests": [
+        {
+          "title": "保存后的刷新未完成时添加按钮禁用，完成后能打开表单",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2040
+            }
+          ]
+        },
+        {
+          "title": "完整管理流程、校验、异常和筛选",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 5066
+            }
+          ]
+        },
+        {
+          "title": "55条历史分页、重开、切换、删除及手机布局",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2493
+            }
+          ]
+        },
+        {
+          "title": "真实服务断开、页面保留数据、同库重启恢复",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 5208
+            }
+          ]
+        },
+        {
+          "title": "业务规则、精确值编辑与UTC日汇总",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1954
+            }
+          ]
+        },
+        {
+          "title": "编辑名称保留正文和JSON路径中的LF与CRLF",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 826
+            }
+          ]
+        },
+        {
+          "title": "首版数据库升级后标注不完整汇总且重启不重复累计",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 873
+            }
+          ]
+        },
+        {
+          "title": "M1 工具退化、结果陈旧和断连不展示当前正常",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 875
+            }
+          ]
+        },
+        {
+          "title": "M1 状态接口延迟不能延长目标结果有效期",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2966
+            }
+          ]
+        },
+        {
+          "title": "M1 浏览器墙钟偏移不改变服务端新鲜度",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1148
+            }
+          ]
+        },
+        {
+          "title": "M2 普通展示脱敏而编辑启停和实际请求保留原值",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1076
+            }
+          ]
+        },
+        {
+          "title": "M2 无效规则指出编号并保留表单输入",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 677
+            }
+          ]
+        },
+        {
+          "title": "M2 历史展示结构化分类与保留明细统计范围",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 693
+            }
+          ]
+        },
+        {
+          "title": "M3 保留范围与维护指引在窄屏可读",
+          "project": "firefox",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1046
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "browser": "edge",
+      "engine": "chromium",
+      "channel": "msedge",
+      "version": "156.0.4314.58",
+      "headless": true,
+      "firstExecution": true,
+      "firstExecutionInReportedEnvironment": true,
+      "retries": 0,
+      "executionPermissions": "restricted sandbox",
+      "command": "PULSE_BROWSER=edge npx playwright test --reporter=json",
+      "startTime": "2026-11-08T14:43:38.549Z",
+      "durationMs": 17105.357,
+      "passed": 14,
+      "failed": 0,
+      "flaky": 0,
+      "skipped": 0,
+      "rawReportSHA256": "96d8f4c7ef2018fb9d66c5a593149b5d2210f878f8f367e2b20d12a408e1023f",
+      "tests": [
+        {
+          "title": "保存后的刷新未完成时添加按钮禁用，完成后能打开表单",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 830
+            }
+          ]
+        },
+        {
+          "title": "完整管理流程、校验、异常和筛选",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3301
+            }
+          ]
+        },
+        {
+          "title": "55条历史分页、重开、切换、删除及手机布局",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1720
+            }
+          ]
+        },
+        {
+          "title": "真实服务断开、页面保留数据、同库重启恢复",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 639
+            }
+          ]
+        },
+        {
+          "title": "业务规则、精确值编辑与UTC日汇总",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1201
+            }
+          ]
+        },
+        {
+          "title": "编辑名称保留正文和JSON路径中的LF与CRLF",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 624
+            }
+          ]
+        },
+        {
+          "title": "首版数据库升级后标注不完整汇总且重启不重复累计",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 606
+            }
+          ]
+        },
+        {
+          "title": "M1 工具退化、结果陈旧和断连不展示当前正常",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 653
+            }
+          ]
+        },
+        {
+          "title": "M1 状态接口延迟不能延长目标结果有效期",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2842
+            }
+          ]
+        },
+        {
+          "title": "M1 浏览器墙钟偏移不改变服务端新鲜度",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 585
+            }
+          ]
+        },
+        {
+          "title": "M2 普通展示脱敏而编辑启停和实际请求保留原值",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 695
+            }
+          ]
+        },
+        {
+          "title": "M2 无效规则指出编号并保留表单输入",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 524
+            }
+          ]
+        },
+        {
+          "title": "M2 历史展示结构化分类与保留明细统计范围",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 608
+            }
+          ]
+        },
+        {
+          "title": "M3 保留范围与维护指引在窄屏可读",
+          "project": "edge",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 780
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "firstFailureNotes": [
+    {
+      "browser": "firefox",
+      "environment": "restricted sandbox",
+      "scope": "Browser launch before any test case completed",
+      "firstSuiteAttempt": {
+        "startTime": "2026-11-08T14:47:03Z",
+        "result": "Interrupted after browser launch did not connect; raw JSON reporter had not emitted a report. No completed cases claimed."
+      },
+      "minimalProbe": {
+        "headless": true,
+        "timeoutMs": 15000,
+        "status": "failed",
+        "error": "browserType.launch: Timeout 15000ms exceeded.",
+        "lastBrowserLog": "*** You are running in headless mode."
+      },
+      "versionProbe": {
+        "status": "failed",
+        "error": "browserType.launch: Timeout 180000ms exceeded."
+      },
+      "diagnosis": "Same cached Firefox with default security settings connected to Juggler and returned version 159.0 immediately when run once with normal host permissions; the complete suite was then run in that environment. This identifies an execution-environment difference; the exact sandbox limitation was not established.",
+      "normalPermissionProbe": {
+        "status": "passed",
+        "version": "159.0",
+        "jugglerReady": true,
+        "exitCode": 0,
+        "securityPreferencesChanged": false
+      },
+      "cleanup": "Playwright closed its own browser processes; no Firefox processes remained before the normal-permission run."
+    }
+  ],
+  "acceptanceBoundaries": {
+    "edgeManualAcceptance": "Recorded separately by the main task; these results are automated only.",
+    "physicalDevice": "Not tested; 320/375/390px viewport checks are browser layout checks.",
+    "longRun": "No 24-hour experiment started by this browser task."
+  }
+}

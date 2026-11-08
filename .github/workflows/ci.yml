@@ -44,10 +44,23 @@ jobs:
       - name: Verify public file boundary
         run: node scripts/check-public-files.cjs
       - run: npm test
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Chromium and Firefox
+        run: npx playwright install --with-deps chromium firefox
       - name: Real browser end-to-end tests
         run: npm run test:e2e
+      - name: Firefox end-to-end tests
+        env:
+          PULSE_BROWSER: firefox
+        run: npx playwright test
+      - name: Edge end-to-end tests
+        if: runner.os == 'Windows'
+        env:
+          PULSE_BROWSER: edge
+        run: npx playwright test
+      - name: Windows soak launcher regressions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-soak-session.ps1
       - name: Standalone maintenance workflow
         shell: pwsh
         run: |

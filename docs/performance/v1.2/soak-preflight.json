@@ -1,0 +1,30 @@
+{
+  "kind": "short_preflight_only",
+  "release_acceptance_passed": false,
+  "working_tree_preflight": true,
+  "base_commit": "4fe3b6b6979fd19a8c2772a191de29cb36a82832",
+  "configured_seconds": 60,
+  "elapsed_seconds": 60.002855600000004,
+  "completed_writes": 586,
+  "mutations": 2,
+  "query_rounds": 7,
+  "same_url_overlaps": 0,
+  "seen_kinds": [
+    "ok",
+    "http_error",
+    "assertion_failed",
+    "timeout"
+  ],
+  "restart_passed": true,
+  "cleanup_passed": true,
+  "product_source_sha256": "80510dc07f2963722b167264a34148bc67ab6ddd3dcb6340d7a34f3b2d06f539",
+  "runtime_scripts_sha256": "616e05787fb73377d3b2512061faa70fbd89f129f558556a89a8cf09a8eedb87",
+  "binary_sha256": "2024227ecfcf874fa7755eb09dc75ff0793cdfb635bbeffadaa0cb53d34af256",
+  "result_sha256": "55b04d82c67892c6ff233012fc4be8e7fb37636d7f6b721b7d757c586366491d",
+  "samples_csv_sha256": "85daed28c4aa37a9d3bbb649843b2bd6f066367d343e877d1b3d93bcafa32044",
+  "notes": [
+    "60 seconds cannot establish 24-hour reliability",
+    "Initial background preflight failed before sampling on Git dubious ownership; per-command safe.directory now scoped to this repository",
+    "Raw evidence remains private because environment/log files contain machine paths"
+  ]
+}
