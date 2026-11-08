@@ -33,6 +33,39 @@ test('output cannot reuse or escape an existing output directory',()=>{
   const output=path.resolve(__dirname,'..','.cache','performance-unit-'+process.pid+'-'+Date.now());
   safeOutput(output);try{assert.throws(()=>safeOutput(output));}finally{fs.rmdirSync(output);}
 });
+test('fresh checkout creates missing cache and nested output parents safely',()=>{
+  const fixture=fs.mkdtempSync(path.join(os.tmpdir(),'pulse-performance-fresh-'));
+  const project=path.join(fixture,'checkout'),scripts=path.join(project,'scripts');
+  fs.mkdirSync(scripts,{recursive:true});
+  for(const name of ['performance-v12.cjs','launch-server.cjs'])fs.copyFileSync(path.join(__dirname,name),path.join(scripts,name));
+  const {safeOutput:createOutput}=require(path.join(scripts,'performance-v12.cjs'));
+  try {
+    const output=path.join(project,'.cache','nested','evidence','run');
+    assert.equal(fs.existsSync(path.join(project,'.cache')),false);
+    assert.equal(createOutput(output),output);
+    assert.equal(fs.statSync(output).isDirectory(),true);
+    const marker=path.join(output,'keep.txt');fs.writeFileSync(marker,'existing evidence');
+    assert.throws(()=>createOutput(output),{code:'EEXIST'});
+    assert.equal(fs.readFileSync(marker,'utf8'),'existing evidence');
+    assert.throws(()=>createOutput(path.join(project,'.cache','..','escape')));
+    assert.equal(fs.existsSync(path.join(project,'escape')),false);
+  }finally{fs.rmSync(fixture,{recursive:true,force:true});}
+});
+test('fresh checkout refuses symlink cache/parent before creating missing descendants',()=>{
+  const fixture=fs.mkdtempSync(path.join(os.tmpdir(),'pulse-performance-links-'));
+  try {
+    const outside=path.join(fixture,'outside');fs.mkdirSync(outside);fs.writeFileSync(path.join(outside,'keep.txt'),'untouched');
+    for(const nested of [false,true]) {
+      const project=path.join(fixture,nested?'nested-checkout':'cache-checkout'),scripts=path.join(project,'scripts');fs.mkdirSync(scripts,{recursive:true});
+      for(const name of ['performance-v12.cjs','launch-server.cjs'])fs.copyFileSync(path.join(__dirname,name),path.join(scripts,name));
+      const cache=path.join(project,'.cache');if(nested)fs.mkdirSync(cache);
+      const link=nested?path.join(cache,'nested'):cache;fs.symlinkSync(outside,link,process.platform==='win32'?'junction':'dir');
+      const {safeOutput:createOutput}=require(path.join(scripts,'performance-v12.cjs'));
+      assert.throws(()=>createOutput(path.join(link,'missing','run')),/Symlink output ancestor rejected/);
+      assert.deepEqual(fs.readdirSync(outside),['keep.txt']);
+    }
+  }finally{fs.rmSync(fixture,{recursive:true,force:true});}
+});
 test('Windows output ancestor traversal terminates with different drive/path casing',{skip:process.platform!=='win32'},()=>{
   const output=path.resolve(__dirname,'..','.cache','performance-case-unit-'+process.pid+'-'+Date.now());
   // Isolate the traversal so this regression cannot hang the test worker.

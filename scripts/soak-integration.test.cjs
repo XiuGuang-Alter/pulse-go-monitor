@@ -5,15 +5,26 @@ const {EventEmitter}=require('node:events');
 const root=path.resolve(__dirname,'..');
 // Execute the real entry point, replacing only OS/HTTP/time boundaries. A helper
 // test alone cannot prove that the experiment actually invokes its safeguards.
-async function experiment(mode='healthy',extraEnv={}){
+async function experiment(mode='healthy',extraEnv={},hostFS=fs){
  let clock=0,wallJump=0,reads=0,launched=0,stopped=0,nextID=1,upstreamHandler;const written=new Map(),targets=[],routes=[];
  const child={pid:123,stderr:new EventEmitter()};
  const upstream=new EventEmitter();upstream.listen=()=>queueMicrotask(()=>upstream.emit('listening'));
  upstream.address=()=>({port:18001});upstream.closeAllConnections=()=>{};upstream.close=cb=>cb();
  const output=path.join(root,'.cache','synthetic-soak-test');
+ const cache=path.join(root,'.cache'),directories=new Set(mode==='existing'?[output]:[]);
+ const inCache=file=>{const relative=path.relative(cache,path.resolve(file));return relative===''||relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative);};
+ const exists=file=>{const resolved=path.resolve(file);return directories.has(resolved)||(inCache(resolved)?false:hostFS.existsSync(resolved));};
+ function missing(file){const error=Error('Virtual directory does not exist: '+file);error.code='ENOENT';return error;}
  const fakeProcess={pid:456,platform:'win32',arch:'x64',version:process.version,exitCode:0,env:{PULSE_SOAK_SECONDS:mode==='toggle starves'?'300':'180',PULSE_SOAK_MUTATION_SECONDS:'40',PULSE_SOAK_OUT:output,...extraEnv},on(){},removeListener(){}};
- const files={...fs,existsSync(file){if(path.resolve(file)===output)return mode==='existing';return fs.existsSync(file);},mkdirSync(){},
-  realpathSync(file){if(mode==='symlink escape'&&String(file).includes('.cache'))return path.resolve(root,'..');return fs.realpathSync(file);},
+ // Cache directories belong entirely to this fixture. Their existence and
+ // canonical paths must agree after mkdir, even on a clean CI checkout.
+ const files={...fs,existsSync:exists,mkdirSync(file,options={}){
+   const resolved=path.resolve(file),parent=path.dirname(resolved);
+   if(exists(resolved)){if(options.recursive)return;const error=Error('Virtual directory exists: '+resolved);error.code='EEXIST';throw error;}
+   if(!exists(parent)){if(!options.recursive)throw missing(parent);files.mkdirSync(parent,options);}
+   directories.add(resolved);
+  },
+  realpathSync(file){const resolved=path.resolve(file);if(!exists(resolved))throw missing(resolved);if(mode==='symlink escape'&&inCache(resolved))return path.resolve(root,'..');if(directories.has(resolved))return path.join(hostFS.realpathSync(root),path.relative(root,resolved));return hostFS.realpathSync(resolved);},
   readFileSync(file,...args){if(String(file).endsWith('pulse-soak.exe'))return Buffer.from('fixture binary');return fs.readFileSync(file,...args);},
   writeFileSync(file,data){if(mode==='progress failure'&&String(file).includes('progress.json')&&String(data).includes('cleaning'))throw Error('fixture progress write failed');written.set(path.basename(file),String(data));},
   renameSync(from,to){written.set(path.basename(to),written.get(path.basename(from)));written.delete(path.basename(from));},
@@ -84,3 +95,12 @@ test('existing evidence directory is refused before launch',async()=>{await asse
 
 test('lexical parent path escape is refused before launch',async()=>{await assert.rejects(()=>experiment('healthy',{PULSE_SOAK_OUT:path.resolve(root,'..','escaped-evidence')}),/stay in project/);});
 test('resolved junction/symlink parent escape is refused before launch',async()=>{await assert.rejects(()=>experiment('symlink escape'),/outside project/);});
+
+test('fresh checkout creates virtual evidence parents without a host cache directory',async()=>{
+ const cache=path.join(root,'.cache');
+ const isCache=file=>{const rel=path.relative(cache,path.resolve(file));return rel===''||rel!=='..'&&!rel.startsWith('..'+path.sep)&&!path.isAbsolute(rel);};
+ const hostFS={...fs,existsSync(file){return isCache(file)?false:fs.existsSync(file);},realpathSync(file){if(isCache(file)){const error=Error('Host cache does not exist: '+file);error.code='ENOENT';throw error;}return fs.realpathSync(file);}};
+ const r=await experiment('healthy',{},hostFS);
+ assert.equal(r.exitCode,0,r.written.get('failure.txt'));
+ assert.equal(JSON.parse(r.written.get('result.json')).passed,true);
+});

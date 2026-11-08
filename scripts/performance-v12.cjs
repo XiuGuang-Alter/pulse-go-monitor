@@ -49,16 +49,27 @@ function safeOutput(destination) {
   const out = path.resolve(destination), relative = path.relative(path.join(root,'.cache'),out);
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw Error('Output must be a NEW child directory under project .cache');
   // Reject junction/symlink ancestors so a lexical project path cannot escape.
-  let cursor = path.dirname(out);
+  const parent = path.dirname(out);
   const boundary = path.dirname(root);
-  // path.relative follows the platform's case rules (including Windows drive
-  // letters). The fixed-point guard also bounds traversal at a filesystem root.
-  while (path.relative(boundary,cursor) !== '') {
-    if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink()) throw Error('Symlink output ancestor rejected');
-    const next = path.dirname(cursor);
-    if (next === cursor) break;
-    cursor = next;
+  function checkAncestors() {
+    let cursor = parent;
+    // path.relative follows the platform's case rules (including Windows drive
+    // letters). The fixed-point guard bounds traversal at a filesystem root.
+    while (path.relative(boundary,cursor) !== '') {
+      try { if (fs.lstatSync(cursor).isSymbolicLink()) throw Error('Symlink output ancestor rejected'); }
+      catch(error) { if(error.code!=='ENOENT')throw error; }
+      const next = path.dirname(cursor);
+      if (next === cursor) break;
+      cursor = next;
+    }
   }
+  checkAncestors();
+  const expectedParent = path.resolve(fs.realpathSync(root),path.relative(root,parent));
+  fs.mkdirSync(parent, {recursive:true});
+  // Recheck after creation: missing parents are allowed, redirected parents are
+  // not. The final evidence directory itself must still be newly created.
+  checkAncestors();
+  if(path.relative(expectedParent,fs.realpathSync(parent))!=='')throw Error('Output parent resolved outside expected project path');
   fs.mkdirSync(out, {recursive:false});
   return out;
 }
