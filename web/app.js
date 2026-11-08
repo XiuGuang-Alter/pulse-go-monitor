@@ -2,6 +2,9 @@
 const $ = (id) => document.getElementById(id);
 const state = {
   targets: [],
+  connected: true,
+  receivedAt: 0,
+  freshnessSignature: "",
   filter: "all",
   search: "",
   editing: null,
@@ -90,12 +93,31 @@ function ms(value) {
 function badge(text, kind) {
   return el("span", "badge " + kind, text);
 }
+const monotonicNow = () => globalThis.performance?.now() ?? Date.now();
+function currentFreshness(target) {
+ if (!state.connected) return "disconnected";
+ const f=target.freshness;
+ if (!f) return "unknown";
+ if (target.enabled && f.state!=="paused" && monotonicNow()-state.receivedAt>f.valid_until-f.observed_at) return "stale";
+ return f.state;
+}
+function currentlyHealthy(target) {
+ return target.enabled && currentFreshness(target)==="fresh" && target.latest?.kind==="ok";
+}
 function targetState(target) {
+ const freshness=currentFreshness(target);
+ if (freshness==="disconnected") return ["数据未更新", "error"];
+ if (!target.enabled) return ["已暂停", ""];
+ if (freshness==="stale") return ["结果陈旧", "error"];
+ if (freshness==="pending_configuration") return ["配置待验证", ""];
+ if (freshness==="waiting") return ["等待检查", ""];
+ if (freshness==="unknown") return ["状态待确认", ""];
+
   if (target.running) return ["检查中", "running"];
   if (!target.enabled) return ["已暂停", ""];
   if (!target.latest) return ["待检查", ""];
   return [
-    kinds[target.latest.kind] || "未知",
+    (kinds[target.latest.kind] || "未知") + (target.freshness?.reason==="queued" ? " · 等待检查" : ""),
     target.latest.kind === "ok" ? "ok" : "error",
   ];
 }
@@ -111,19 +133,20 @@ function matches(target) {
     state.filter === "all" ||
     (state.filter === "paused" && !target.enabled) ||
     (state.filter === "healthy" &&
-      target.enabled &&
-      target.latest?.kind === "ok") ||
+      currentlyHealthy(target)) ||
     (state.filter === "error" &&
       target.enabled &&
       target.latest &&
       target.latest.kind !== "ok")
   );
 }
+function freshnessSignature() { return state.targets.map(t=>currentFreshness(t)).join(","); }
 function render() {
+  state.freshnessSignature=freshnessSignature();
   $("add-target").disabled=state.mutating;
   const targets = state.targets,
     enabled = targets.filter((t) => t.enabled),
-    healthy = enabled.filter((t) => t.latest?.kind === "ok"),
+    healthy = enabled.filter(currentlyHealthy),
     failed = enabled.filter((t) => t.latest && t.latest.kind !== "ok");
   $("metric-total").textContent = targets.length;
   $("metric-enabled").textContent =
@@ -223,27 +246,35 @@ function refresh() {
     state.refreshing = true;
     $("refresh").disabled = true;
     try {
+      const observedAt=monotonicNow();
       const [targets, status] = await Promise.all([
         api("/api/targets"),
         api("/api/status"),
       ]);
       if (generation !== refreshGeneration) return;
       state.targets = targets;
+      state.connected=true;
+      state.receivedAt=observedAt;
       render();
-      $("connection").classList.remove("offline");
+      const health=status.monitor_health?.state ?? "unknown";
+      const healthLabels={starting:"监测服务启动中",healthy:"监测服务正常",idle:"监测服务空闲",degraded:"监测服务退化",unknown:"监测状态未知"};
+      $("connection").classList.toggle("offline",health==="degraded" || health==="unknown");
       $("connection").replaceChildren(
         el("i", "status-dot"),
         document.createTextNode(
-          `监测服务运行中 · ${status.running}/${status.concurrency}`,
+          `${healthLabels[health] ?? healthLabels.unknown} · ${status.running}/${status.concurrency}`,
         ),
       );
-      notice("global-error");
+      const healthReasons={storage_read_failed:"配置读取失败",storage_write_failed:"检查结果保存失败",scan_not_advancing:"调度扫描未持续推进",stopped:"调度器已停止"};
+      notice("global-error",health==="degraded" ? "监测器内部异常："+(healthReasons[status.monitor_health?.reason] ?? "原因待确认") : "");
       $("updated-at").textContent =
         "更新于 " + new Date().toLocaleTimeString("zh-CN", { hour12: false });
       if (state.historyId && !targets.some((t) => t.id === state.historyId))
         $("history-dialog").close();
     } catch (error) {
       if (generation !== refreshGeneration) return;
+      state.connected=false;
+      render();
       notice(
         "global-error",
         "连接监测服务失败：" +
@@ -278,6 +309,7 @@ function applySavedTarget(saved) {
     ...saved,
     latest: previous?.latest ?? saved.latest,
     stats: previous?.stats ?? saved.stats,
+    freshness: {state:"pending_configuration",observed_at:0,valid_until:Number.MAX_SAFE_INTEGER},
     running: previous?.running ?? false,
   };
   state.targets = previous
@@ -588,3 +620,6 @@ refresh();
 setInterval(() => {
   if (!document.hidden) refresh();
 }, 5000);
+
+// Re-evaluate age while a refresh is slow; use elapsed time, not browser wall time.
+setInterval(() => { if (!document.hidden && state.freshnessSignature!==freshnessSignature()) render(); }, 1000);

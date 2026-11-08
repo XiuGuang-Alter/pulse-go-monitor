@@ -33,14 +33,17 @@ type SampleStats struct {
 	AverageMS    float64 `json:"average_ms"`
 }
 type Target struct {
+	RunningDeadline int64 `json:"running_deadline"`
 	TargetInput
 	ID             int64        `json:"id"`
 	CreatedAt      int64        `json:"created_at"`
 	NextCheckAt    int64        `json:"next_check_at"`
-	Version        int64        `json:"-"`
+	Version        int64        `json:"current_config_version"`
 	Latest         *CheckRecord `json:"latest"`
 	Stats          SampleStats  `json:"stats"`
 	Running        bool         `json:"running"`
+	RunningSince   int64        `json:"running_since"`
+	Freshness      *Freshness   `json:"freshness,omitempty"`
 	RuleValuesJSON []string     `json:"rule_values_json,omitempty"`
 }
 type CheckRecord struct {

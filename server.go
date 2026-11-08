@@ -81,13 +81,15 @@ func targetID(r *http.Request) (int64, error) {
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
-		if err := a.store.db.PingContext(r.Context()); err != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), storeOperationTimeout)
+		defer cancel()
+		if err := a.store.db.PingContext(ctx); err != nil {
 			apiError(w, err)
 			return
 		}
 		var memory runtime.MemStats
 		runtime.ReadMemStats(&memory)
-		jsonResponse(w, 200, map[string]any{"status": "ok", "started_at": a.startedAt.UnixMilli(), "server_time": time.Now().UnixMilli(), "running": len(a.scheduler.RunningIDs()), "concurrency": cap(a.scheduler.slots), "heap_alloc_bytes": memory.HeapAlloc, "goroutines": runtime.NumGoroutine()})
+		jsonResponse(w, 200, map[string]any{"monitor_health": a.scheduler.Health(time.Now()), "status": "ok", "started_at": a.startedAt.UnixMilli(), "server_time": time.Now().UnixMilli(), "running": len(a.scheduler.RunningIDs()), "concurrency": cap(a.scheduler.slots), "heap_alloc_bytes": memory.HeapAlloc, "goroutines": runtime.NumGoroutine()})
 	})
 	mux.HandleFunc("GET /api/targets", func(w http.ResponseWriter, r *http.Request) {
 		targets, err := a.store.ListTargets(r.Context())
@@ -95,9 +97,14 @@ func (a *App) Handler() http.Handler {
 			apiError(w, err)
 			return
 		}
-		running := a.scheduler.RunningIDs()
+		running := a.scheduler.RunningTimes()
+		now := time.Now()
 		for i := range targets {
-			targets[i].Running = running[targets[i].ID]
+			targets[i].RunningSince = running[targets[i].ID].StartedAt
+			targets[i].RunningDeadline = running[targets[i].ID].Deadline
+			targets[i].Running = targets[i].RunningSince > 0
+			freshness := targetFreshness(targets[i], now)
+			targets[i].Freshness = &freshness
 		}
 		jsonResponse(w, 200, targets)
 	})

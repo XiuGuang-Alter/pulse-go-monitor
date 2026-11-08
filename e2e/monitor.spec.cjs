@@ -133,3 +133,61 @@ test('首版数据库升级后标注不完整汇总且重启不重复累计',asy
  const daily=await (await request.get(base+'/api/targets/1/daily?days=1')).json();expect(daily.buckets[0].samples).toBe(1);expect((await list(request))[0].latest.total_duration_ms).toBeNull();await page.getByRole('button',{name:'完成',exact:true}).click();
  await stop();app=await launch(new URL(base).host);const reopened=await (await request.get(base+'/api/targets/1/daily?days=1')).json();expect(reopened.buckets[0].samples).toBe(1);
 });
+
+
+test('M1 工具退化、结果陈旧和断连不展示当前正常',async({page,request})=>{
+ await add(page,'可信度目标','/ok');
+ await expect.poll(async()=> (await list(request))[0]?.latest?.kind).toBe('ok');
+ await page.route('**/api/targets',async route=>{
+  if(route.request().method()!=='GET')return route.continue();
+  const response=await route.fetch(); const rows=await response.json();
+  for(const t of rows)t.freshness={state:'stale',reason:'schedule_delayed',observed_at:Date.now(),valid_until:1};
+  await route.fulfill({response,json:rows});
+ });
+ await page.route('**/api/status',async route=>{
+  const response=await route.fetch();const body=await response.json();
+  body.monitor_health={state:'degraded',reason:'storage_write_failed'};
+  await route.fulfill({response,json:body});
+ });
+ await refresh(page);
+ await expect(page.locator('#connection')).toContainText('退化');
+ await expect(row(page,'可信度目标')).toContainText('结果陈旧');
+ await expect(page.locator('#metric-healthy')).toHaveText('0');
+ await page.locator('#filter').selectOption('healthy');await expect(page.locator('#targets tr')).toHaveCount(0);
+ await page.locator('#filter').selectOption('all');
+ await page.unroute('**/api/targets');await page.unroute('**/api/status');
+ await refresh(page);await expect(page.locator('#metric-healthy')).toHaveText('1');
+ await page.route('**/api/status',route=>route.abort());await refresh(page);
+ await expect(row(page,'可信度目标')).toContainText('数据未更新');
+ await expect(page.locator('#metric-healthy')).toHaveText('0');
+});
+
+
+test('M1 状态接口延迟不能延长目标结果有效期',async({page,request})=>{
+ await add(page,'慢状态接口','/ok');
+ await expect.poll(async()=> (await list(request))[0]?.latest?.kind).toBe('ok');
+ await page.route('**/api/targets',async route=>{
+  const response=await route.fetch();const rows=await response.json();
+  for(const t of rows)t.freshness={state:'fresh',observed_at:100000,valid_until:101000};
+  await route.fulfill({response,json:rows});
+ });
+ await page.route('**/api/status',async route=>{
+  const response=await route.fetch();await new Promise(resolve=>setTimeout(resolve,2000));
+  await route.fulfill({response});
+ });
+ await refresh(page);
+ expect(await page.evaluate(()=>currentlyHealthy(state.targets[0]))).toBe(false);
+ await expect(row(page,'慢状态接口')).toContainText('结果陈旧');
+});
+
+
+test('M1 浏览器墙钟偏移不改变服务端新鲜度',async({page,request})=>{
+ await add(page,'时钟目标','/ok');
+ await expect.poll(async()=> (await list(request))[0]?.latest?.kind).toBe('ok');
+ await page.clock.setSystemTime(new Date('2000-01-01T00:00:00Z'));
+ await refresh(page);
+ await expect(page.locator('#metric-healthy')).toHaveText('1');
+ await page.clock.setSystemTime(new Date('2099-01-01T00:00:00Z'));
+ await refresh(page);
+ await expect(page.locator('#metric-healthy')).toHaveText('1');
+});
