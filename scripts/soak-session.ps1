@@ -40,7 +40,7 @@ if($Action -eq 'Status'){
     if(Test-Path -LiteralPath (Join-Path $directory 'failure.txt')){$failure=Get-Content -LiteralPath (Join-Path $directory 'failure.txt') -Raw}
     $validResult=$result -and $result.worker_pid -eq $record.worker_pid -and $result.configured_seconds -eq $record.configured_seconds -and $result.elapsed_seconds -ge $record.configured_seconds -and $result.phase -eq 'completed' -and $result.passed -and $result.cleanup.passed
     $failed=$failure -or ($result -and ($result.phase -eq 'failed' -or $result.passed -eq $false -or $result.cleanup.passed -eq $false))
-    $stale=$alive -and $progress -and $progress.phase -eq 'measuring' -and ([DateTime]::UtcNow-[DateTime]::Parse($progress.updated_utc).ToUniversalTime()).TotalSeconds -gt 30
+    $stale=$alive -and $progress -and $progress.phase -eq 'measuring' -and ([DateTimeOffset]::UtcNow-[DateTimeOffset]$progress.updated_utc).TotalSeconds -gt 30
     $state=if($failed){'failed'}elseif($validResult -and -not $alive){'completed'}elseif($stale){'stale'}elseif($alive){'running'}else{'incomplete'}
     [ordered]@{state=$state;worker_alive=$alive;session=$record;progress=$progress;result=$result;failure=$failure}|ConvertTo-Json -Depth 12
     return

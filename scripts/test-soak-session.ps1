@@ -28,6 +28,22 @@ try{& (Join-Path $PSScriptRoot 'soak-session.ps1') -Action Start -OutputDirector
 if(-not $rejected){throw 'Existing evidence directory was accepted'}
 'PASS: status rejects partial/cleanup-failed runs; start rejects path escape and existing evidence'
 
+# JSON ISO timestamps may already be DateTime objects in newer PowerShell.
+# Preserve their UTC kind instead of stringifying and parsing them as local time.
+$liveOutput=Join-Path $directory 'live-evidence';New-Item -ItemType Directory -Path $liveOutput|Out-Null
+$self=Get-Process -Id $PID
+$liveRecord=@{worker_pid=$PID;worker_path=$self.Path;worker_started_ticks=$self.StartTime.ToUniversalTime().Ticks.ToString();configured_seconds=86400;output_directory=$liveOutput}
+$liveSession=Join-Path $directory 'live.json';$liveRecord|ConvertTo-Json|Set-Content -LiteralPath $liveSession -Encoding utf8
+$liveProgress=@{phase='measuring';updated_utc=[DateTime]::UtcNow.ToString('o')}
+$liveProgress|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $liveOutput 'progress.json') -Encoding utf8
+$observed=& (Join-Path $PSScriptRoot 'soak-session.ps1') -Action Status -SessionFile $liveSession|ConvertFrom-Json
+if($observed.state -ne 'running'){throw 'Fresh UTC progress was incorrectly interpreted as stale in the local timezone'}
+$liveProgress.updated_utc=[DateTime]::UtcNow.AddMinutes(-2).ToString('o')
+$liveProgress|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $liveOutput 'progress.json') -Encoding utf8
+$observed=& (Join-Path $PSScriptRoot 'soak-session.ps1') -Action Status -SessionFile $liveSession|ConvertFrom-Json
+if($observed.state -ne 'stale'){throw 'Old UTC progress was not identified as stale'}
+'PASS: live UTC timestamps remain fresh; actual two-minute gaps are stale'
+
 # Replace only the process-launch boundary: no real worker is created by these
 # failure-path tests, and Kill(true) is observed on the fake process object.
 $global:soakMockStarts=0;$global:soakMockKills=0
