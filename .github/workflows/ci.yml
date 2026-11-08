@@ -48,6 +48,12 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Real browser end-to-end tests
         run: npm run test:e2e
+      - name: Standalone maintenance workflow
+        shell: pwsh
+        run: |
+          $candidate = if ($IsWindows) { '.cache/pulse-e2e.exe' } else { '.cache/pulse-e2e' }
+          node scripts/test-maintenance.cjs $candidate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Windows isolated acceptance script regressions
         if: runner.os == 'Windows'
         shell: pwsh

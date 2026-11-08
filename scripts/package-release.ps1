@@ -16,6 +16,7 @@ try {
 } finally {$env:GOOS=$oldOS;$env:GOARCH=$oldArch;$env:CGO_ENABLED=$oldCGO}
 foreach($name in @('启动监测.cmd','启动演示.cmd','LICENSE','THIRD_PARTY_NOTICES.txt')){Copy-Item -LiteralPath (Join-Path $root $name) -Destination $stage}
 Copy-Item -LiteralPath (Join-Path $root 'docs/下载包使用说明.md') -Destination (Join-Path $stage '使用说明.md')
+Copy-Item -LiteralPath (Join-Path $root 'docs/数据维护.md') -Destination (Join-Path $stage '数据维护.md')
 $commit=git -C $root rev-parse --verify HEAD 2>$null
 if($LASTEXITCODE -ne 0){$commit='uncommitted-local-candidate'}
 @("Pulse v$Version", "Commit: $commit",'Target: windows/amd64',('Built UTC: '+[DateTime]::UtcNow.ToString('o'))) | Set-Content -LiteralPath (Join-Path $stage 'BUILD.txt') -Encoding utf8

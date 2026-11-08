@@ -17,6 +17,11 @@ func main() {
 
 // run 把命令行交互与进程退出分开，让测试可以检查输出和退出码。
 func run(args []string, out io.Writer, errOut io.Writer) int {
+	if len(args) > 0 && args[0] == "maintain" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		return runMaintenance(ctx, args[1:], out, errOut)
+	}
 	if len(args) > 0 && args[0] == "serve" {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()

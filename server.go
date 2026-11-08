@@ -209,7 +209,12 @@ func (a *App) Handler() http.Handler {
 			apiError(w, err)
 			return
 		}
-		jsonResponse(w, 200, map[string]any{"items": records, "next_before_id": next, "error_categories": categories, "category_scope": "retained_checks"})
+		retention, err := a.store.Retention(r.Context(), id)
+		if err != nil {
+			apiError(w, err)
+			return
+		}
+		jsonResponse(w, 200, map[string]any{"retention": retention, "items": records, "next_before_id": next, "error_categories": categories, "category_scope": "retained_checks"})
 	})
 	mux.HandleFunc("GET /api/targets/{id}/daily", func(w http.ResponseWriter, r *http.Request) {
 		id, err := targetID(r)

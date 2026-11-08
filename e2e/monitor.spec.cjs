@@ -237,3 +237,24 @@ test('M2 历史展示结构化分类与保留明细统计范围',async({page,req
  await expect(page.locator('#error-categories')).toContainText('仅当前保留明细，非30日全量');
  await expect(page.locator('#error-categories')).toContainText('HTTP 5xx');
 });
+
+
+test('M3 保留范围与维护指引在窄屏可读',async({page,request},info)=>{
+ await add(page,'保留范围目标','/ok',false);
+ await row(page,'保留范围目标').getByRole('button',{name:'历史',exact:true}).click();
+ await expect(page.locator('#retention-note')).toContainText('最多1000条且最多30天');
+ await expect(page.locator('#retention-note')).toContainText('理论约83.3分钟');
+ await expect(page.locator('#retention-note')).toContainText('当前保留0条');
+ await page.getByRole('button',{name:'完成',exact:true}).click();
+ await row(page,'保留范围目标').getByRole('button',{name:'立即检查',exact:true}).click();
+ await expect.poll(async()=> (await list(request))[0]?.stats?.samples).toBe(1);
+ await row(page,'保留范围目标').getByRole('button',{name:'历史',exact:true}).click();
+ await expect(page.locator('#retention-note')).toContainText('当前保留1条');
+ await expect(page.locator('#retention-note')).toContainText('不能还原已淘汰明细');
+ await page.getByRole('button',{name:'完成',exact:true}).click();
+ await page.setViewportSize({width:375,height:812});await page.locator('#help-open').click();
+ await expect(page.locator('#help-dialog')).toContainText('maintain backup');
+ await expect(page.locator('#help-dialog')).toContainText('默认暂停目标');
+ expect(await page.locator('#help-dialog').evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
+ await page.screenshot({path:info.outputPath('maintenance-narrow.png')});
+});

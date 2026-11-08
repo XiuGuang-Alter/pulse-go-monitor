@@ -226,6 +226,7 @@
       </div>
       <p id="history-url" class="muted url-text"></p>
  <p id="error-categories" class="muted small"></p>
+ <p id="retention-note" class="muted small"></p>
       <div class="history-chart-heading">
         <span>最近 30 次响应耗时</span
         ><button id="history-refresh" class="button subtle">↻ 更新记录</button>
@@ -314,6 +315,14 @@
       <p class="muted">
         页面仅供本机使用。普通展示隐藏常见敏感查询参数；进入编辑会显示原始配置。原始配置API、数据库和完整备份可能含敏感值，脱敏不等于加密或鉴权。
       </p>
+      <h3>数据维护</h3>
+      <p class="muted">先正常停止服务，再在程序目录运行命令。备份保存完整数据；配置迁移只保存目标设置。恢复与导入只写全新路径，不覆盖现有库。</p>
+      <pre class="maintenance-commands">go-monitor.exe maintain backup -db data/monitor.db -out backup.zip
+go-monitor.exe maintain verify -in backup.zip
+go-monitor.exe maintain restore -in backup.zip -db data/restored.db
+go-monitor.exe maintain export-config -db data/monitor.db -out config.json -full
+go-monitor.exe maintain import-config -in config.json -db data/imported.db -dry-run</pre>
+      <p class="muted">确认预检结果后去掉 -dry-run 才会导入，默认暂停目标。完整配置与备份可能含敏感值；默认配置导出为脱敏文件，不能直接导入。历史导出时间按UTC左闭右开，运行 maintain help 查看全部参数与限制。</p>
       <div class="dialog-actions">
         <button class="button primary" data-close="help-dialog">知道了</button>
       </div>

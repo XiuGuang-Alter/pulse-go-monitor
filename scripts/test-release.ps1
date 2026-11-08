@@ -6,11 +6,12 @@ $directory=Join-Path $root ('.cache/release-smoke-'+[Guid]::NewGuid().ToString('
 New-Item -ItemType Directory -Path $directory|Out-Null
 $archive=[IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $ZipPath).Path)
 try{
-    $allowed=@('go-monitor.exe','启动监测.cmd','启动演示.cmd','LICENSE','THIRD_PARTY_NOTICES.txt','使用说明.md','BUILD.txt')
+    $allowed=@('go-monitor.exe','启动监测.cmd','启动演示.cmd','LICENSE','THIRD_PARTY_NOTICES.txt','使用说明.md','数据维护.md','BUILD.txt')
     if($archive.Entries.Count -ne $allowed.Count){throw '下载包文件数不符合白名单'}
     foreach($entry in $archive.Entries){if($entry.FullName -notin $allowed){throw "下载包含非发布文件：$($entry.FullName)"}}
 }finally{$archive.Dispose()}
 Expand-Archive -LiteralPath $ZipPath -DestinationPath $directory
+$nodeExecutable=(Get-Command node -ErrorAction Stop).Source
 $oldPath=$env:PATH
 $process=$null
 try{
@@ -57,6 +58,8 @@ try{
     }
     $daily=Invoke-RestMethod "$base/api/targets/$($ruleTarget.id)/daily?days=1"
     if($daily.timezone -ne 'UTC' -or $daily.buckets[0].samples -ne 2 -or $daily.buckets[0].successes -ne 1){throw '下载包日汇总异常'}
+    & $nodeExecutable (Join-Path $PSScriptRoot 'test-maintenance.cjs') (Join-Path $directory 'go-monitor.exe')
+    if($LASTEXITCODE -ne 0){throw '下载包维护命令工作流失败'}
     "PASS: 新目录解压、发布白名单、无Go/Node PATH运行、页面/API、正常/500/超时、规则失败与修复及UTC汇总"
 }finally{
     if($null -ne $process -and -not $process.HasExited){$process.Kill();$process.WaitForExit()}

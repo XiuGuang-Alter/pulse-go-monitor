@@ -483,6 +483,7 @@ function openHistory(target) {
   $("history-title").textContent = target.name;
   $("history-url").textContent = displayURL(target);
  $("error-categories").textContent="正在读取保留明细错误分类…";
+ $("retention-note").textContent="正在读取保留范围…";
   $("history-rows").replaceChildren();
   $("history-chart").replaceChildren();
   $("history-empty").hidden = true;
@@ -511,6 +512,7 @@ async function loadHistory(more) {
     state.cursor = result.next_before_id;
     renderHistory();
     if(daily)renderDaily(daily);
+ if(!more)renderRetention(result.retention);
  if(!more)$("error-categories").textContent="错误分类（仅当前保留明细，非30日全量）："+(Object.entries(result.error_categories??{}).map(([key,count])=>(categories[key]??"未知")+" "+count).join(" · ")||"无失败样本");
     $("history-more").hidden = !state.cursor;
   } catch (error) {
@@ -628,3 +630,12 @@ setInterval(() => {
 
 // Re-evaluate age while a refresh is slow; use elapsed time, not browser wall time.
 setInterval(() => { if (!document.hidden && state.freshnessSignature!==freshnessSignature()) render(); }, 1000);
+
+function renderRetention(info) {
+ if (!info) {$("retention-note").textContent="保留范围暂不可用";return;}
+ const duration=info.theoretical_seconds>=7200
+  ? (info.theoretical_seconds/3600).toLocaleString("zh-CN",{maximumFractionDigits:1})+"小时"
+  : (info.theoretical_seconds/60).toLocaleString("zh-CN",{maximumFractionDigits:1})+"分钟";
+ const actual=info.records ? `${info.records}条，${date(info.earliest_checked_at)} 至 ${date(info.latest_checked_at)}（本机时间）` : "0条，尚无明细";
+ $("retention-note").textContent=`明细最多${info.max_records}条且最多${info.max_age_days}天，先达到的限制生效。按当前间隔理论约${duration}，不含请求耗时、停机和排队。当前保留${actual}。UTC日汇总不能还原已淘汰明细。`;
+}
