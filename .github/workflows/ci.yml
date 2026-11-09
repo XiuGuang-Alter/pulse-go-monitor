@@ -75,6 +75,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          git status --porcelain=v1 --untracked-files=all
+          git diff --name-status
+          git diff --cached --name-status
           ./scripts/package-release.ps1 -Version 1.2.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./scripts/test-release.ps1 -ZipPath dist/pulse-v1.2.0-windows-amd64.zip -ExpectedCommit (git rev-parse HEAD)
