@@ -1,0 +1,8 @@
+{
+  "targets": 100,
+  "history_each": 1000,
+  "total_checks": 100000,
+  "utc_days": 30,
+  "distribution": "n%5: ok,http_error503,timeout,assertion_failed,request_error(dns in schema4; legacy inferred unknown)",
+  "schema": 4
+}

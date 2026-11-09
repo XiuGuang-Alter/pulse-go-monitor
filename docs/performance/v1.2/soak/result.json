@@ -1,0 +1,47 @@
+{
+  "configured_seconds": 86400,
+  "elapsed_seconds": 86400.0293162,
+  "completed_writes": 842460,
+  "segments": [
+    {
+      "instance_id": "34454158574657555153584b5a32465358574f34565459554448",
+      "started_utc": "2026-11-08T15:23:03.038Z",
+      "elapsed_seconds": 86400.0293162,
+      "write_baseline": 12,
+      "write_final": 842472,
+      "completed_writes": 842460
+    }
+  ],
+  "peak_upstream_active": 5,
+  "same_url_overlaps": 0,
+  "mutations": 287,
+  "query_rounds": 8620,
+  "deleted_targets": 287,
+  "seen_kinds": [
+    "ok",
+    "http_error",
+    "assertion_failed",
+    "timeout"
+  ],
+  "restart": {
+    "passed": true,
+    "phase": "completed",
+    "started_utc": "2026-11-09T15:23:04.399Z",
+    "previous_instance_id": "34454158574657555153584b5a32465358574f34565459554448",
+    "ended_utc": "2026-11-09T15:23:04.639Z",
+    "elapsed_seconds": 0.24030200000107288,
+    "instance_id": "5a47444c504f57444b514f325459334e4a4557574b58334d5841",
+    "successful_writes_at_observation": 0,
+    "targets": 100,
+    "termination": "forced isolated-child stop; graceful SIGINT/Ctrl+C verified separately; restart duration excluded from measurement"
+  },
+  "passed": true,
+  "phase": "completed",
+  "started_utc": "2026-11-08T15:23:00.079Z",
+  "ended_utc": "2026-11-09T15:23:04.644Z",
+  "instance_id": "34454158574657555153584b5a32465358574f34565459554448",
+  "cleanup": {
+    "passed": true,
+    "detail": "child and upstream stopped"
+  }
+}

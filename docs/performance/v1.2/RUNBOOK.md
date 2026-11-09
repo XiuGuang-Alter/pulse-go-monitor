@@ -1,11 +1,13 @@
 # v1.2 同机性能复核复现
 
-这是实验工具说明，不是完成报告。完整实验必须等最终候选的 24 小时长跑结束后运行，同机串行测量，关闭其他压力实验。普通 CI 只运行统计/fixture 单元测试，不设共享环境下的毫秒耗时门槛。
+这是实验工具说明；已完成结果见[完整性能复核](full/README.md)。完整实验在最终候选的24小时长跑结束后运行，同机串行测量，关闭其他压力实验。普通CI只运行统计/fixture单元测试，不设共享环境下的毫秒耗时门槛。
 
 在仓库根目录的 PowerShell 7 中执行以下一条命令；将候选路径替换为实际冻结的最终候选，不能用旧候选代替：
 
+先从v1.1的fbfd0be干净归档构建基线，匹配候选的Go版本、CGO及编译参数；本次使用 `go build -trimpath '-ldflags=-s -w' -buildvcs=false`，未使用原未裁剪的升级测试程序。将同参数基线保存为下例路径，再回到v1.2仓库运行。构建清单及hash见完整报告environment.json；输入程序与Go源码helper基准是独立实验。
+
 ```powershell
-node scripts/performance-v12.cjs .cache/pulse-v11-upgrade.exe .cache/final-candidate.exe
+node scripts/performance-v12.cjs .cache/pulse-v11-matched.exe .cache/final-candidate.exe
 ```
 
 默认输出一个全新的 `.cache/performance-v12-<时间戳>` 目录。可用 `--out=.cache/新的目录名` 指定；已有目录、项目 `.cache` 外路径及符号链接祖先均拒绝。数据库和源码快照在专用系统临时目录中创建，正常结束、失败和可处理的中断会停止专属子进程并清理；不会读取或覆盖 `data`、用户数据库、旧二进制或已有证据。强制结束 Node、系统崩溃等无法执行清理的中断只能算未完成。
@@ -15,7 +17,7 @@ node scripts/performance-v12.cjs .cache/pulse-v11-upgrade.exe .cache/final-candi
 快速预检命令：
 
 ```powershell
-node scripts/performance-v12.cjs .cache/pulse-v11-upgrade.exe .cache/final-candidate.exe --preflight --skip-go
+node scripts/performance-v12.cjs .cache/pulse-v11-matched.exe .cache/final-candidate.exe --preflight --skip-go
 ```
 
 预检结果明确标为 `preflight_completed`，不能作为完整矩阵或发布性能证据。`--skip-go` 会缺少分配证据，只用于受控预检。

@@ -1,0 +1,144 @@
+{
+  "source_commit": "dcdbcd78e048315ff830a85d404e2141db17b3a6",
+  "product_source": {
+    "sha256": "80510dc07f2963722b167264a34148bc67ab6ddd3dcb6340d7a34f3b2d06f539",
+    "files": [
+      {
+        "path": "backup.go",
+        "sha256": "55073abbc311ec9dddfae29dbbb13781abc5663a83ccfb847af469ddf4044971"
+      },
+      {
+        "path": "check.go",
+        "sha256": "2b678dfee2aca95b8fe7c36af4b21a9ba15abc79a03af89d3d63f3d9cbaca7f1"
+      },
+      {
+        "path": "daily.go",
+        "sha256": "6cd6d0a8c637fe912f2c1bfd24baf09c80c3c0a034c8034482bcef0db2941387"
+      },
+      {
+        "path": "freshness.go",
+        "sha256": "137d4ece9ace5862e6382c733a4717734a8a41241c9f78eb9718027c596cfa0a"
+      },
+      {
+        "path": "go.mod",
+        "sha256": "6f9333b8634c03170230f574217f0479e0d33f733ec388fd723f96ee8bb92e4b"
+      },
+      {
+        "path": "go.sum",
+        "sha256": "7fbcf8309a8a2b2e92a37c6928e485a2309850549841872aa2c5b4848a7c85ea"
+      },
+      {
+        "path": "main.go",
+        "sha256": "6be940f66e71ce9e8bba3858f54ec1aba4d3c8f7c73d2a561abdb988fb56a935"
+      },
+      {
+        "path": "maintenance_cli.go",
+        "sha256": "49bd07bc598147696f3a9175266399deddbc2f3805443017030ec7a397618868"
+      },
+      {
+        "path": "maintenance_source.go",
+        "sha256": "480a531df8aadb4546f8f80fcc1a3f5cccfa2b9c3d998c7c53e6ccfaecd51237"
+      },
+      {
+        "path": "migrations.go",
+        "sha256": "26e5b768418eec0f54ccd200faa748dbaf6fd017eb75acc90a26d8031eeba887"
+      },
+      {
+        "path": "model.go",
+        "sha256": "06809d2f59725d9f4df56e9b0f8acde71657e3f000b7abf910f117444bab864b"
+      },
+      {
+        "path": "monitor_health.go",
+        "sha256": "c6bcefca27ec3e76ebaf548b4d05b6c5a538a7e1a1bebaa1fc5a8f106d268323"
+      },
+      {
+        "path": "redaction.go",
+        "sha256": "eff6f0c30410612e1579553152cd257a3e5bf9074fa4fbf08c13a4e12139d9fb"
+      },
+      {
+        "path": "retention.go",
+        "sha256": "bd5f79ff29ff5d9da1675356066c9fea42e166f4751ed54913a1738279c60a3c"
+      },
+      {
+        "path": "rules.go",
+        "sha256": "71ad10e2d44afc0279ccd12c30d20501637693d3d00be27fc1b128f2da6c2040"
+      },
+      {
+        "path": "rules_json.go",
+        "sha256": "7851ab6c3b48198d1e8433ba0446afc6009dc75ab4be0f34f0e94ca9a5125b26"
+      },
+      {
+        "path": "scheduler.go",
+        "sha256": "9cc91042b27374466a9fd1ef535886f98d4f13e6663a1cc3b84f221c319a7aab"
+      },
+      {
+        "path": "serve.go",
+        "sha256": "38122b167cec2ca1e00f0e74a353c87912de201ecec6ef698871b332bb363a46"
+      },
+      {
+        "path": "server.go",
+        "sha256": "d7ea6349b2443503b79095e4a51ede96b46a6cb52e55e7d8883368963d3ad978"
+      },
+      {
+        "path": "store.go",
+        "sha256": "d4c9f5feaceb19257f4f180526f0ee0c5d104e930e800d4e20aa412e6db89eae"
+      },
+      {
+        "path": "transfer.go",
+        "sha256": "74bade699ba2b0302ddb8317f46259566835e0837f99503978956e410093b626"
+      },
+      {
+        "path": "web/app.js",
+        "sha256": "b59e89ac479182e13432e70c397be9a564f923d70e61ac100987e3756e63aa50"
+      },
+      {
+        "path": "web/index.html",
+        "sha256": "0413b191ac5fc52c90ebadff4b28885d002c49958fec8004846c2a90952082f4"
+      },
+      {
+        "path": "web/style.css",
+        "sha256": "908110093f8eb2d82e40e5e03582601eda5056e1eee8588c47d5fdb494723b68"
+      }
+    ]
+  },
+  "runtime_scripts": {
+    "sha256": "616e05787fb73377d3b2512061faa70fbd89f129f558556a89a8cf09a8eedb87",
+    "files": [
+      {
+        "path": "scripts/launch-server.cjs",
+        "sha256": "6dc7b61a2d0698e4605c446b433f94f5f2d86854afc4de0574e2ceec5350d5ac"
+      },
+      {
+        "path": "scripts/soak-health.cjs",
+        "sha256": "cf351c88117e836bdfc1da10c79740e025a320dd3b807fefc74c4b90e5a9715f"
+      },
+      {
+        "path": "scripts/soak.cjs",
+        "sha256": "d87d20c80b2cd1adbff28732959a081a57c9471cc9976be8592077fd8f3bd888"
+      }
+    ]
+  },
+  "binary_sha256": "2024227ecfcf874fa7755eb09dc75ff0793cdfb635bbeffadaa0cb53d34af256",
+  "go_version": "go version go1.27.3 windows/amd64",
+  "build_flags": [
+    "-trimpath",
+    "-ldflags=-s -w",
+    "-buildvcs=false"
+  ],
+  "platform": "win32",
+  "arch": "x64",
+  "node": "v24.15.0",
+  "targets": 100,
+  "concurrency": 4,
+  "interval_seconds": 10,
+  "mutation_seconds": 300,
+  "duration_seconds": 86400,
+  "notes": {
+    "write_count": "successful_writes minus first measurement baseline; one instance only",
+    "history": "stats.samples is retained history only, never progress",
+    "due_wait": "one rotating target sampled: now-next_check_at when enabled and not running",
+    "queue_delay": "same rotating target, running_since minus next_check_at if running; sampled, not full-population latency",
+    "memory": "RSS is working set; Go heap is heap_alloc_bytes; DB/WAL/SHM are allocated file sizes, not live record bytes",
+    "restart": "separate post-measurement forced-stop persistence check; no counter subtraction across instances"
+  }
+}

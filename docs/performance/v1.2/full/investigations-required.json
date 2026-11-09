@@ -1,0 +1,38 @@
+[
+  {
+    "metric": "elapsed_ms",
+    "key": "history_first",
+    "baseline_ms": 0.46960000000035507,
+    "candidate_ms": 1.5351000000009662,
+    "delta_ms": 1.0655000000006112,
+    "change_percent": 226.8952299829228,
+    "investigation_required": true
+  },
+  {
+    "metric": "elapsed_ms",
+    "key": "history_page",
+    "baseline_ms": 0.40569999999934225,
+    "candidate_ms": 1.5074000000022352,
+    "delta_ms": 1.101700000002893,
+    "change_percent": 271.5553364566623,
+    "investigation_required": true
+  },
+  {
+    "metric": "elapsed_ms",
+    "key": "BenchmarkM4/API/History50",
+    "baseline_ms": 0.21615,
+    "candidate_ms": 1.22351,
+    "delta_ms": 1.00736,
+    "change_percent": 466.0467268100856,
+    "investigation_required": true
+  },
+  {
+    "metric": "elapsed_ms",
+    "key": "BenchmarkM4/Store/RecordCheckMixed",
+    "baseline_ms": 2.10785,
+    "candidate_ms": 2.82587,
+    "delta_ms": 0.7180200000000001,
+    "change_percent": 34.06409374481107,
+    "investigation_required": true
+  }
+]

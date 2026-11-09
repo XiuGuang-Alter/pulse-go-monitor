@@ -1,0 +1,5 @@
+=== RUN   TestM4InteractiveHistoryLoad
+    investigation_test.go:78: 100 targets x1000 initial details, 50ms upstream, 20% HTTP503, 5s interval, concurrency4; no-query 3-wave control_ms=15772.065; continuous paced query window_ms=15782.013; history_requests=683; max_history_ms=27.855; writes_start=400; writes_end=700; requests_with_write_progress_while_inflight=34; all_target_advancing_wave_snapshots=3; health=healthy; no stale in query-time/post-wave snapshots
+--- PASS: TestM4InteractiveHistoryLoad (34.00s)
+PASS
+ok  	github.com/XiuGuang-Alter/pulse-go-monitor	34.857s

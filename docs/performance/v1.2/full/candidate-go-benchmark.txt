@@ -1,0 +1,95 @@
+=== RUN   TestM4QueryPlans
+    performance_v12_test.go:187: latest: SELECT c.id FROM targets t JOIN checks c ON c.id=(SELECT id FROM checks INDEXED BY checks_target_id WHERE target_id=t.id AND checked_at>=0 ORDER BY id DESC LIMIT 1)
+    performance_v12_test.go:199: SCAN t
+    performance_v12_test.go:199: SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    performance_v12_test.go:199: CORRELATED SCALAR SUBQUERY 1
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_target_id (target_id=?)
+    performance_v12_test.go:187: list stats: SELECT target_id,COUNT(*),SUM(CASE WHEN kind='ok' THEN 1 ELSE 0 END),AVG(duration_ms) FROM checks WHERE checked_at>=0 GROUP BY target_id
+    performance_v12_test.go:199: SCAN checks USING COVERING INDEX checks_stats
+    performance_v12_test.go:187: history page: SELECT * FROM checks INDEXED BY checks_target_id WHERE target_id=1 AND checked_at>=0 AND id<951 ORDER BY id DESC LIMIT 50
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_target_id (target_id=? AND id<?)
+    performance_v12_test.go:187: daily: SELECT * FROM daily_summaries WHERE target_id=1 AND date>='2000-01-01' AND date<='2100-01-01' ORDER BY date
+    performance_v12_test.go:199: SEARCH daily_summaries USING INDEX sqlite_autoindex_daily_summaries_1 (target_id=? AND date>? AND date<?)
+    performance_v12_test.go:187: categories: SELECT kind,status_code,error_category,COUNT(*) FROM checks WHERE target_id=1 AND checked_at>=0 AND kind!='ok' GROUP BY kind,status_code,error_category
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_stats (target_id=? AND checked_at>?)
+    performance_v12_test.go:199: USE TEMP B-TREE FOR GROUP BY
+--- PASS: TestM4QueryPlans (0.80s)
+=== RUN   TestM4QueryPlans
+    performance_v12_test.go:187: latest: SELECT c.id FROM targets t JOIN checks c ON c.id=(SELECT id FROM checks INDEXED BY checks_target_id WHERE target_id=t.id AND checked_at>=0 ORDER BY id DESC LIMIT 1)
+    performance_v12_test.go:199: SCAN t
+    performance_v12_test.go:199: SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    performance_v12_test.go:199: CORRELATED SCALAR SUBQUERY 1
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_target_id (target_id=?)
+    performance_v12_test.go:187: list stats: SELECT target_id,COUNT(*),SUM(CASE WHEN kind='ok' THEN 1 ELSE 0 END),AVG(duration_ms) FROM checks WHERE checked_at>=0 GROUP BY target_id
+    performance_v12_test.go:199: SCAN checks USING COVERING INDEX checks_stats
+    performance_v12_test.go:187: history page: SELECT * FROM checks INDEXED BY checks_target_id WHERE target_id=1 AND checked_at>=0 AND id<951 ORDER BY id DESC LIMIT 50
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_target_id (target_id=? AND id<?)
+    performance_v12_test.go:187: daily: SELECT * FROM daily_summaries WHERE target_id=1 AND date>='2000-01-01' AND date<='2100-01-01' ORDER BY date
+    performance_v12_test.go:199: SEARCH daily_summaries USING INDEX sqlite_autoindex_daily_summaries_1 (target_id=? AND date>? AND date<?)
+    performance_v12_test.go:187: categories: SELECT kind,status_code,error_category,COUNT(*) FROM checks WHERE target_id=1 AND checked_at>=0 AND kind!='ok' GROUP BY kind,status_code,error_category
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_stats (target_id=? AND checked_at>?)
+    performance_v12_test.go:199: USE TEMP B-TREE FOR GROUP BY
+--- PASS: TestM4QueryPlans (0.79s)
+=== RUN   TestM4QueryPlans
+    performance_v12_test.go:187: latest: SELECT c.id FROM targets t JOIN checks c ON c.id=(SELECT id FROM checks INDEXED BY checks_target_id WHERE target_id=t.id AND checked_at>=0 ORDER BY id DESC LIMIT 1)
+    performance_v12_test.go:199: SCAN t
+    performance_v12_test.go:199: SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    performance_v12_test.go:199: CORRELATED SCALAR SUBQUERY 1
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_target_id (target_id=?)
+    performance_v12_test.go:187: list stats: SELECT target_id,COUNT(*),SUM(CASE WHEN kind='ok' THEN 1 ELSE 0 END),AVG(duration_ms) FROM checks WHERE checked_at>=0 GROUP BY target_id
+    performance_v12_test.go:199: SCAN checks USING COVERING INDEX checks_stats
+    performance_v12_test.go:187: history page: SELECT * FROM checks INDEXED BY checks_target_id WHERE target_id=1 AND checked_at>=0 AND id<951 ORDER BY id DESC LIMIT 50
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_target_id (target_id=? AND id<?)
+    performance_v12_test.go:187: daily: SELECT * FROM daily_summaries WHERE target_id=1 AND date>='2000-01-01' AND date<='2100-01-01' ORDER BY date
+    performance_v12_test.go:199: SEARCH daily_summaries USING INDEX sqlite_autoindex_daily_summaries_1 (target_id=? AND date>? AND date<?)
+    performance_v12_test.go:187: categories: SELECT kind,status_code,error_category,COUNT(*) FROM checks WHERE target_id=1 AND checked_at>=0 AND kind!='ok' GROUP BY kind,status_code,error_category
+    performance_v12_test.go:199: SEARCH checks USING INDEX checks_stats (target_id=? AND checked_at>?)
+    performance_v12_test.go:199: USE TEMP B-TREE FOR GROUP BY
+--- PASS: TestM4QueryPlans (0.85s)
+goos: windows
+goarch: amd64
+pkg: github.com/XiuGuang-Alter/pulse-go-monitor
+cpu: 12th Gen Intel(R) Core(TM) i7-12700H
+BenchmarkM4
+BenchmarkM4/Store/List100x1000
+BenchmarkM4/Store/List100x1000-20         	      10	  18459430 ns/op	  268688 B/op	    5627 allocs/op
+BenchmarkM4/Store/List100x1000-20         	      10	  17627130 ns/op	  268773 B/op	    5628 allocs/op
+BenchmarkM4/Store/List100x1000-20         	      10	  17853590 ns/op	  269036 B/op	    5628 allocs/op
+BenchmarkM4/Store/HistoryFirst50
+BenchmarkM4/Store/HistoryFirst50-20       	      10	    188040 ns/op	   58351 B/op	    1188 allocs/op
+BenchmarkM4/Store/HistoryFirst50-20       	      10	    167380 ns/op	   58351 B/op	    1188 allocs/op
+BenchmarkM4/Store/HistoryFirst50-20       	      10	    177540 ns/op	   58317 B/op	    1188 allocs/op
+BenchmarkM4/Store/HistoryNext50
+BenchmarkM4/Store/HistoryNext50-20        	      10	    181660 ns/op	   58333 B/op	    1190 allocs/op
+BenchmarkM4/Store/HistoryNext50-20        	      10	    190740 ns/op	   58367 B/op	    1190 allocs/op
+BenchmarkM4/Store/HistoryNext50-20        	      10	    179910 ns/op	   58333 B/op	    1190 allocs/op
+BenchmarkM4/Store/Daily30
+BenchmarkM4/Store/Daily30-20              	      10	    108830 ns/op	   15325 B/op	     413 allocs/op
+BenchmarkM4/Store/Daily30-20              	      10	     86190 ns/op	   15359 B/op	     413 allocs/op
+BenchmarkM4/Store/Daily30-20              	      10	     88450 ns/op	   15359 B/op	     413 allocs/op
+BenchmarkM4/Store/ErrorCategories
+BenchmarkM4/Store/ErrorCategories-20      	      10	    753720 ns/op	    3575 B/op	     101 allocs/op
+BenchmarkM4/Store/ErrorCategories-20      	      10	    726350 ns/op	    3575 B/op	     101 allocs/op
+BenchmarkM4/Store/ErrorCategories-20      	      10	    741960 ns/op	    3575 B/op	     101 allocs/op
+BenchmarkM4/API/List
+BenchmarkM4/API/List-20                   	      10	  18483790 ns/op	  671611 B/op	    6808 allocs/op
+BenchmarkM4/API/List-20                   	      10	  17645840 ns/op	  554277 B/op	    6796 allocs/op
+BenchmarkM4/API/List-20                   	      10	  19514490 ns/op	  670338 B/op	    6806 allocs/op
+BenchmarkM4/API/History50
+BenchmarkM4/API/History50-20              	      10	   1260390 ns/op	  135184 B/op	    1947 allocs/op
+BenchmarkM4/API/History50-20              	      10	   1164270 ns/op	  137881 B/op	    1954 allocs/op
+BenchmarkM4/API/History50-20              	      10	   1223510 ns/op	  143914 B/op	    1952 allocs/op
+BenchmarkM4/API/Daily30
+BenchmarkM4/API/Daily30-20                	      10	    118310 ns/op	   30834 B/op	     477 allocs/op
+BenchmarkM4/API/Daily30-20                	      10	    113740 ns/op	   31944 B/op	     479 allocs/op
+BenchmarkM4/API/Daily30-20                	      10	    137350 ns/op	   31967 B/op	     480 allocs/op
+BenchmarkM4/API/Status
+BenchmarkM4/API/Status-20                 	      10	     37200 ns/op	   10264 B/op	      77 allocs/op
+BenchmarkM4/API/Status-20                 	      10	     31330 ns/op	   10108 B/op	      76 allocs/op
+BenchmarkM4/API/Status-20                 	      10	     28700 ns/op	   10108 B/op	      76 allocs/op
+BenchmarkM4/Store/RecordCheckMixed
+BenchmarkM4/Store/RecordCheckMixed-20     	      10	   2592170 ns/op	    4374 B/op	     105 allocs/op
+BenchmarkM4/Store/RecordCheckMixed-20     	      10	   2825870 ns/op	    4476 B/op	     107 allocs/op
+BenchmarkM4/Store/RecordCheckMixed-20     	      10	   2882770 ns/op	    4376 B/op	     105 allocs/op
+PASS
+ok  	github.com/XiuGuang-Alter/pulse-go-monitor	5.565s

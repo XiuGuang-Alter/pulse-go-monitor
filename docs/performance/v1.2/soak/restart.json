@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "phase": "completed",
+  "started_utc": "2026-11-09T15:23:04.399Z",
+  "previous_instance_id": "34454158574657555153584b5a32465358574f34565459554448",
+  "ended_utc": "2026-11-09T15:23:04.639Z",
+  "elapsed_seconds": 0.24030200000107288,
+  "instance_id": "5a47444c504f57444b514f325459334e4a4557574b58334d5841",
+  "successful_writes_at_observation": 0,
+  "targets": 100,
+  "termination": "forced isolated-child stop; graceful SIGINT/Ctrl+C verified separately; restart duration excluded from measurement"
+}

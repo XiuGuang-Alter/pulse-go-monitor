@@ -1,0 +1,16 @@
+goos: windows
+goarch: amd64
+pkg: github.com/XiuGuang-Alter/pulse-go-monitor
+cpu: 12th Gen Intel(R) Core(TM) i7-12700H
+BenchmarkM4/API/History50-20         	     200	   1229580 ns/op	  131372 B/op	    1947 allocs/op
+BenchmarkM4/API/History50-20         	     200	   1181891 ns/op	  131296 B/op	    1946 allocs/op
+BenchmarkM4/API/History50-20         	     200	   1154880 ns/op	  132572 B/op	    1946 allocs/op
+BenchmarkM4/API/History50-20         	     200	   1149116 ns/op	  131621 B/op	    1946 allocs/op
+BenchmarkM4/API/History50-20         	     200	   1158804 ns/op	  130710 B/op	    1945 allocs/op
+BenchmarkM4/Store/RecordCheckMixed-20         	     200	   2145380 ns/op	    4343 B/op	     105 allocs/op
+BenchmarkM4/Store/RecordCheckMixed-20         	     200	   2254896 ns/op	    4414 B/op	     106 allocs/op
+BenchmarkM4/Store/RecordCheckMixed-20         	     200	   2341081 ns/op	    4437 B/op	     107 allocs/op
+BenchmarkM4/Store/RecordCheckMixed-20         	     200	   2252220 ns/op	    4443 B/op	     107 allocs/op
+BenchmarkM4/Store/RecordCheckMixed-20         	     200	   2161982 ns/op	    4413 B/op	     106 allocs/op
+PASS
+ok  	github.com/XiuGuang-Alter/pulse-go-monitor	4.809s

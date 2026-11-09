@@ -1,0 +1,63 @@
+package main
+
+import (
+ "context"
+ "encoding/json"
+ "fmt"
+ "io"
+ "net/http"
+ "net/http/httptest"
+ "testing"
+ "time"
+)
+
+var m4DisplaySink CheckRecord
+
+func BenchmarkM4Breakdown(b *testing.B) {
+ s,target:=m4Fixture(b)
+ ctx:=context.Background()
+ b.Run("GetTarget",func(b *testing.B){b.ReportAllocs();for n:=0;n<b.N;n++{if _,err:=s.GetTarget(ctx,target.ID);err!=nil{b.Fatal(err)}}})
+ b.Run("Categories",func(b *testing.B){b.ReportAllocs();for n:=0;n<b.N;n++{if _,err:=s.ErrorCategories(ctx,target.ID);err!=nil{b.Fatal(err)}}})
+ b.Run("Retention",func(b *testing.B){b.ReportAllocs();for n:=0;n<b.N;n++{if _,err:=s.Retention(ctx,target.ID);err!=nil{b.Fatal(err)}}})
+ rows,err:=s.History(ctx,target.ID,50,0);if err!=nil{b.Fatal(err)}
+ b.Run("Display50",func(b *testing.B){b.ReportAllocs();for n:=0;n<b.N;n++{for _,row:=range rows{m4DisplaySink=safeCheck(row)}}})
+}
+
+func TestM4InteractiveHistoryLoad(t *testing.T) {
+ s,_:=m4Fixture(t)
+ upstream:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+  select{case <-time.After(50*time.Millisecond):case <-r.Context().Done():return}
+  var id int;fmt.Sscanf(r.URL.Path,"/target/%d",&id)
+  if id%5==0{w.WriteHeader(503)}
+  io.WriteString(w,"synthetic fixed 50ms")
+ }));defer upstream.Close()
+ if _,err:=s.db.Exec("UPDATE targets SET url=?||id,interval_seconds=5,timeout_seconds=1,enabled=1,next_check_at=0",upstream.URL+"/target/");err!=nil{t.Fatal(err)}
+ scheduler,err:=NewScheduler(s,4,nil);if err!=nil{t.Fatal(err)}
+ defer scheduler.Stop();scheduler.Start()
+ api:=httptest.NewServer(NewApp(s,scheduler).Handler());defer api.Close()
+ client:=api.Client();client.Timeout=5*time.Second
+ waitWrites:=func(min uint64){
+  t.Helper();deadline:=time.Now().Add(20*time.Second)
+  for time.Now().Before(deadline){h:=scheduler.Health(time.Now());if h.State=="degraded"||h.ConsecutiveErrors!=0||h.AffectedTargets!=0{t.Fatalf("monitor degraded: %+v",h)};if h.SuccessfulWrites>=min{return};time.Sleep(50*time.Millisecond)}
+  t.Fatalf("writes did not reach %d",min)
+ }
+ snapshot:=func()map[int64]int64{
+  t.Helper();response,err:=client.Get(api.URL+"/api/targets");if err!=nil{t.Fatal(err)};defer response.Body.Close()
+  if response.StatusCode!=200{t.Fatal(response.Status)}
+  var targets []Target;if err:=json.NewDecoder(response.Body).Decode(&targets);err!=nil{t.Fatal(err)}
+  if len(targets)!=100{t.Fatalf("targets=%d",len(targets))}
+  ids:=map[int64]int64{}
+  for _,target:=range targets{if target.Latest==nil||target.Freshness==nil||!(target.Freshness.State=="fresh"||target.Freshness.State=="checking"){t.Fatalf("invalid target progress/freshness: id=%d freshness=%+v",target.ID,target.Freshness)};ids[target.ID]=target.Latest.ID}
+  if len(scheduler.RunningIDs())>4{t.Fatal("concurrency exceeded")};return ids
+ }
+ waitWrites(100);previous:=snapshot()
+ var bursts []float64
+ for round:=0;round<3;round++{
+  started:=time.Now()
+  for id:=1;id<=100;id++{response,err:=client.Get(fmt.Sprintf("%s/api/targets/%d/checks?limit=50",api.URL,id));if err!=nil{t.Fatal(err)};_,readErr:=io.Copy(io.Discard,response.Body);response.Body.Close();if readErr!=nil||response.StatusCode!=200{t.Fatalf("history status=%s err=%v",response.Status,readErr)}}
+  bursts=append(bursts,float64(time.Since(started))/float64(time.Millisecond))
+  waitWrites(uint64((round+2)*100));now:=snapshot();for id,last:=range previous{if now[id]<=last{t.Fatalf("target %d did not advance under history load",id)}};previous=now
+ }
+ health:=scheduler.Health(time.Now());if health.State!="healthy"{t.Fatalf("health=%+v",health)}
+ t.Logf("100 targets x 1000 initial details, 50ms upstream, 20%% HTTP503, 5s interval, concurrency4; 3 serial bursts x100 history requests: ms=%v; writes=%d; health=%s; every target advanced after each burst; no stale target in post-burst snapshots",bursts,health.SuccessfulWrites,health.State)
+}

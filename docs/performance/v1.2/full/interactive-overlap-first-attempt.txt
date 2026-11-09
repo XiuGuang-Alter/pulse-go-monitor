@@ -1,0 +1,6 @@
+=== RUN   TestM4InteractiveHistoryLoad
+    investigation_test.go:73: insufficient overlap evidence: waves=2 inflight_progress=34
+--- FAIL: TestM4InteractiveHistoryLoad (33.89s)
+FAIL
+exit status 1
+FAIL	github.com/XiuGuang-Alter/pulse-go-monitor	34.756s

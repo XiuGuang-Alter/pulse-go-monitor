@@ -1,0 +1,182 @@
+{
+  "iterations_per_sample": 200,
+  "samples_per_version_operation": 5,
+  "raw_measurements": {
+    "baseline": {
+      "BenchmarkM4/API/History50": [
+        {
+          "iterations": 200,
+          "elapsed_ms": 0.219472,
+          "bytes_per_op": 81576.0,
+          "allocs_per_op": 1208.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 0.213636,
+          "bytes_per_op": 81333.0,
+          "allocs_per_op": 1207.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 0.215331,
+          "bytes_per_op": 81250.0,
+          "allocs_per_op": 1207.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 0.208598,
+          "bytes_per_op": 81310.0,
+          "allocs_per_op": 1207.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 0.21174,
+          "bytes_per_op": 81919.0,
+          "allocs_per_op": 1207.0
+        }
+      ],
+      "BenchmarkM4/Store/RecordCheckMixed": [
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.166424,
+          "bytes_per_op": 4308.0,
+          "allocs_per_op": 104.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.304884,
+          "bytes_per_op": 4379.0,
+          "allocs_per_op": 106.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.240582,
+          "bytes_per_op": 4397.0,
+          "allocs_per_op": 106.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.223783,
+          "bytes_per_op": 4390.0,
+          "allocs_per_op": 106.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.202818,
+          "bytes_per_op": 4378.0,
+          "allocs_per_op": 106.0
+        }
+      ]
+    },
+    "candidate": {
+      "BenchmarkM4/API/History50": [
+        {
+          "iterations": 200,
+          "elapsed_ms": 1.22958,
+          "bytes_per_op": 131372.0,
+          "allocs_per_op": 1947.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 1.181891,
+          "bytes_per_op": 131296.0,
+          "allocs_per_op": 1946.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 1.15488,
+          "bytes_per_op": 132572.0,
+          "allocs_per_op": 1946.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 1.149116,
+          "bytes_per_op": 131621.0,
+          "allocs_per_op": 1946.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 1.158804,
+          "bytes_per_op": 130710.0,
+          "allocs_per_op": 1945.0
+        }
+      ],
+      "BenchmarkM4/Store/RecordCheckMixed": [
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.14538,
+          "bytes_per_op": 4343.0,
+          "allocs_per_op": 105.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.254896,
+          "bytes_per_op": 4414.0,
+          "allocs_per_op": 106.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.341081,
+          "bytes_per_op": 4437.0,
+          "allocs_per_op": 107.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.25222,
+          "bytes_per_op": 4443.0,
+          "allocs_per_op": 107.0
+        },
+        {
+          "iterations": 200,
+          "elapsed_ms": 2.161982,
+          "bytes_per_op": 4413.0,
+          "allocs_per_op": 106.0
+        }
+      ]
+    }
+  },
+  "comparisons": [
+    {
+      "operation": "BenchmarkM4/API/History50",
+      "baseline_ms": 0.213636,
+      "candidate_ms": 1.158804,
+      "delta_ms": 0.945168,
+      "change_percent": 442.41981688479467,
+      "baseline_bytes_per_op": 81333.0,
+      "candidate_bytes_per_op": 131372.0,
+      "baseline_allocs_per_op": 1207.0,
+      "candidate_allocs_per_op": 1946.0
+    },
+    {
+      "operation": "BenchmarkM4/Store/RecordCheckMixed",
+      "baseline_ms": 2.223783,
+      "candidate_ms": 2.25222,
+      "delta_ms": 0.028436999999999824,
+      "change_percent": 1.2787668580972023,
+      "baseline_bytes_per_op": 4379.0,
+      "candidate_bytes_per_op": 4414.0,
+      "baseline_allocs_per_op": 106.0,
+      "candidate_allocs_per_op": 106.0
+    }
+  ],
+  "component_median_ms": {
+    "BenchmarkM4Breakdown/GetTarget": 0.011818,
+    "BenchmarkM4Breakdown/Categories": 0.671025,
+    "BenchmarkM4Breakdown/Retention": 0.112438,
+    "BenchmarkM4Breakdown/Display50": 0.037484
+  },
+  "impact_method": "initial no-query three-wave control, then continuous HTTP history queries paced by 20ms; assert write progress during inflight queries and each target advances across three more waves",
+  "impact_summary": {
+    "control_ms": 15772.065,
+    "query_window_ms": 15782.013,
+    "history_requests": 683,
+    "max_history_ms": 27.855,
+    "writes_start": 400,
+    "writes_end": 700,
+    "requests_with_inflight_write_progress": 34,
+    "all_target_advancing_wave_snapshots": 3,
+    "health": "healthy"
+  },
+  "impact_probe": "interactive-impact.txt",
+  "preliminary_between_rounds_probe": "interactive-between-rounds.txt; not evidence of overlap"
+}

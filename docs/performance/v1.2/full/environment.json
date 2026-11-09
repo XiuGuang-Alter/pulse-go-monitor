@@ -1,0 +1,131 @@
+{
+  "started_utc": "2026-11-09T16:05:30.709Z",
+  "platform": "win32",
+  "arch": "x64",
+  "node": "v24.15.0",
+  "cpu": "12th Gen Intel(R) Core(TM) i7-12700H",
+  "logical_cpus": 20,
+  "total_memory_bytes": 16962281472,
+  "upstream_delay_ms": 50,
+  "status_sample_interval_ms": 50,
+  "write_poll_interval_ms": 5,
+  "matrix_timing": "single activation transaction through final observed SQLite commit; excludes process startup; includes scheduler scan wait and sampling overhead",
+  "rss": "before activation and after completion only; not peak RSS",
+  "source_current": {
+    "sha256": "80510dc07f2963722b167264a34148bc67ab6ddd3dcb6340d7a34f3b2d06f539",
+    "files": [
+      "backup.go",
+      "check.go",
+      "daily.go",
+      "freshness.go",
+      "go.mod",
+      "go.sum",
+      "main.go",
+      "maintenance_cli.go",
+      "maintenance_source.go",
+      "migrations.go",
+      "model.go",
+      "monitor_health.go",
+      "redaction.go",
+      "retention.go",
+      "rules.go",
+      "rules_json.go",
+      "scheduler.go",
+      "serve.go",
+      "server.go",
+      "store.go",
+      "transfer.go",
+      "web/app.js",
+      "web/index.html",
+      "web/style.css"
+    ]
+  },
+  "runner_sha256": "81935b722abffccca106191e7906f8dbb4c30f6fcfab0c034a43ca2eb2fa5f17",
+  "benchmark_sha256": "173c9d667c72d776ff4bee6b7ae73ee2b81712716e72063b1e56dbce74bf21e9",
+  "baseline_commit": "fbfd0be44e4eab99e0b5a5bc9b5748d1991d1373",
+  "git_head": "ba35ffdf40180931c7169b884347569966d79649",
+  "git_status": "",
+  "go": "go version go1.27.3 windows/amd64",
+  "go_benchmarks": "source snapshots (separate executables from supplied binary matrix)",
+  "binary_source_correspondence": "SHA256/build metadata identify supplied binaries; source benchmark hashes identify separately compiled snapshots. Verify provenance before release; a source hash alone does not prove which bytes built an externally supplied binary.",
+  "source_baseline": {
+    "sha256": "79627a82a51d0875ef314464e21ff9d521914f60357f5bc3895e5cafb9dfb78c",
+    "files": [
+      "check.go",
+      "daily.go",
+      "go.mod",
+      "go.sum",
+      "main.go",
+      "migrations.go",
+      "model.go",
+      "rules.go",
+      "rules_json.go",
+      "scheduler.go",
+      "serve.go",
+      "server.go",
+      "store.go",
+      "web/app.js",
+      "web/index.html",
+      "web/style.css"
+    ]
+  },
+  "source_candidate_snapshot": {
+    "sha256": "80510dc07f2963722b167264a34148bc67ab6ddd3dcb6340d7a34f3b2d06f539",
+    "files": [
+      "backup.go",
+      "check.go",
+      "daily.go",
+      "freshness.go",
+      "go.mod",
+      "go.sum",
+      "main.go",
+      "maintenance_cli.go",
+      "maintenance_source.go",
+      "migrations.go",
+      "model.go",
+      "monitor_health.go",
+      "redaction.go",
+      "retention.go",
+      "rules.go",
+      "rules_json.go",
+      "scheduler.go",
+      "serve.go",
+      "server.go",
+      "store.go",
+      "transfer.go",
+      "web/app.js",
+      "web/index.html",
+      "web/style.css"
+    ]
+  },
+  "binaries": {
+    "baseline": {
+      "sha256": "509e1c0909af75a1996f1d5332f0b2889641108e54c87b087333bdf853c360ed",
+      "role": "baseline"
+    },
+    "candidate": {
+      "sha256": "2024227ecfcf874fa7755eb09dc75ff0793cdfb635bbeffadaa0cb53d34af256",
+      "role": "candidate"
+    }
+  },
+  "matched_baseline_build": {
+    "source_commit": "fbfd0be44e4eab99e0b5a5bc9b5748d1991d1373",
+    "source_archive_sha256": "f4497b17648e00c4225fabadbc0eed44c8e0d4a61fde1c5f3181a73a98156bd9",
+    "go_version": "go version go1.27.3 windows/amd64",
+    "build_arguments": [
+      "build",
+      "-trimpath",
+      "-ldflags=-s -w",
+      "-buildvcs=false",
+      "-o",
+      "pulse-v11-matched.exe",
+      "."
+    ],
+    "CGO_ENABLED": 0,
+    "binary_sha256": "509e1c0909af75a1996f1d5332f0b2889641108e54c87b087333bdf853c360ed",
+    "purpose": "matched build flags for final sequential performance comparison"
+  },
+  "candidate_source_commit": "dcdbcd78e048315ff830a85d404e2141db17b3a6",
+  "baseline_build_vs_source_benchmark": "same committed files after CRLF normalization; input binaries and Go benchmark executables remain separate experiments",
+  "investigation_helper_sha256": "3d9ca5cd70be4c1504c0816703c37a728fa63b80eaa4c97f663c476d7938016c"
+}

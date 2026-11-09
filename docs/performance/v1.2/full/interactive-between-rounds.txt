@@ -1,0 +1,5 @@
+=== RUN   TestM4InteractiveHistoryLoad
+    investigation_test.go:62: 100 targets x 1000 initial details, 50ms upstream, 20% HTTP503, 5s interval, concurrency4; 3 serial bursts x100 history requests: ms=[147.3467 151.8917 144.7158]; writes=400; health=healthy; every target advanced after each burst; no stale target in post-burst snapshots
+--- PASS: TestM4InteractiveHistoryLoad (18.17s)
+PASS
+ok  	github.com/XiuGuang-Alter/pulse-go-monitor	19.012s

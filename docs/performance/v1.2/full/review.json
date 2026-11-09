@@ -1,0 +1,40 @@
+{
+  "scope": "R10 performance only; not formal release acceptance",
+  "status": "accepted_with_disclosed_costs",
+  "reviewed_by": [
+    "Codex independent performance evidence reviewer",
+    "Codex primary agent assessment"
+  ],
+  "open_important_findings": 0,
+  "closed_investigation_count": 4,
+  "raw_result_preserved": true,
+  "initial_evidence_gap": "between-round bursts did not prove overlap; preserved and superseded by continuous paced query probe with 34 inflight write-progress observations and 3 strict all-target progress snapshots",
+  "investigations": [
+    {
+      "keys": [
+        "history_first",
+        "history_page",
+        "BenchmarkM4/API/History50"
+      ],
+      "finding": "stable additional history endpoint cost",
+      "evidence": [
+        "targeted-summary.json",
+        "breakdown-candidate.txt",
+        "interactive-impact.txt"
+      ],
+      "disposition": "accepted with approximately 1ms additional absolute cost disclosed; no observed important sampling/freshness impact in fixed matrix and explicit overlapping interaction probe"
+    },
+    {
+      "keys": [
+        "BenchmarkM4/Store/RecordCheckMixed"
+      ],
+      "finding": "initial short-sample increase not reproduced at 200 iterations x5",
+      "evidence": [
+        "targeted-summary.json",
+        "targeted-baseline.txt",
+        "targeted-candidate.txt"
+      ],
+      "disposition": "accepted with initial 34 percent result preserved and longer-sample delta disclosed; no claim of proof against all environment variability"
+    }
+  ]
+}

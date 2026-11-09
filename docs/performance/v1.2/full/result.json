@@ -1,0 +1,12 @@
+{
+  "status": "investigation_required",
+  "correctness_passed": true,
+  "release_acceptance_passed": false,
+  "reason": "human review of workload impact and source/binary correspondence still required; explanations alone do not waive material regressions",
+  "elapsed_seconds": 122.25861110000001,
+  "matrix_rows": 36,
+  "expected_matrix_rows": 36,
+  "storage_observations": 330,
+  "go_observations": 57,
+  "investigation_count": 4
+}

@@ -1,0 +1,18 @@
+goos: windows
+goarch: amd64
+pkg: github.com/XiuGuang-Alter/pulse-go-monitor
+cpu: 12th Gen Intel(R) Core(TM) i7-12700H
+BenchmarkM4Breakdown/GetTarget-20         	     200	     11836 ns/op	    1823 B/op	      50 allocs/op
+BenchmarkM4Breakdown/GetTarget-20         	     200	     11818 ns/op	    1823 B/op	      50 allocs/op
+BenchmarkM4Breakdown/GetTarget-20         	     200	     11806 ns/op	    1823 B/op	      50 allocs/op
+BenchmarkM4Breakdown/Categories-20        	     200	    671025 ns/op	    3290 B/op	     101 allocs/op
+BenchmarkM4Breakdown/Categories-20        	     200	    689976 ns/op	    3287 B/op	     101 allocs/op
+BenchmarkM4Breakdown/Categories-20        	     200	    665878 ns/op	    3288 B/op	     101 allocs/op
+BenchmarkM4Breakdown/Retention-20         	     200	    112438 ns/op	    2679 B/op	      75 allocs/op
+BenchmarkM4Breakdown/Retention-20         	     200	    111416 ns/op	    2680 B/op	      75 allocs/op
+BenchmarkM4Breakdown/Retention-20         	     200	    115498 ns/op	    2679 B/op	      75 allocs/op
+BenchmarkM4Breakdown/Display50-20         	     200	     42762 ns/op	   30827 B/op	     460 allocs/op
+BenchmarkM4Breakdown/Display50-20         	     200	     37484 ns/op	   30829 B/op	     460 allocs/op
+BenchmarkM4Breakdown/Display50-20         	     200	     36014 ns/op	   30830 B/op	     460 allocs/op
+PASS
+ok  	github.com/XiuGuang-Alter/pulse-go-monitor	2.218s
