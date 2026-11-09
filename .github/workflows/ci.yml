@@ -30,8 +30,10 @@ jobs:
       - name: Go tests, real process signal and vet
         shell: pwsh
         run: |
-          go test ./... -count=1 -coverprofile=coverage.out -timeout=180s
+          go test ./... -count=1 '-coverprofile=coverage.out' -timeout=180s
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path -LiteralPath coverage.out -PathType Leaf)) { throw 'Go coverage profile was not written to coverage.out' }
+          if ((Get-Content -LiteralPath coverage.out -TotalCount 1) -notmatch '^mode: (set|count|atomic)$') { throw 'Invalid Go coverage profile header' }
           go vet ./...
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go build -trimpath ./...

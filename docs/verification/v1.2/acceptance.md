@@ -53,3 +53,7 @@
 3a612fa的[CI42586576008](https://github.com/XiuGuang-Alter/pulse-go-monitor/actions/runs/42586576008)双系统及包功能验收成功。下载的新1.2.0测试包包含8个唯一白名单条目，BUILD和二进制VCS revision均为3a612fa；ZIP SHA-256为`65cd9d439b5ad78a3bf0d11e31f5054fb8d2a5b435bff76ee8705aa315b926e9`，与同制品校验文件一致，随包说明/许可标题已统一。但实际二进制记录`vcs.modified=true`，**不能据此确认干净源码构建，不作为正式发布制品**。同一干净提交的本地小规模构建记录为false；现有CI日志缺少打包前的Git状态，尚未确定CI产生dirty的来源。
 
 打包入口因此增加构建前/后Git clean、提交不变以及二进制revision/modified校验；CI保留打包前仅含路径的Git诊断。任一来源条件不符即失败，不通过清理现场、伪造BUILD或关闭VCS戳放行。`-Unstamped`只用于本地夹具，不用于正式候选发布。这些新门槛的结果须由后续CI实测，不将前次功能通过写成来源门槛通过。
+
+随后[b3f79ef的CI42588629866](https://github.com/XiuGuang-Alter/pulse-go-monitor/actions/runs/42588629866)在Windows打包前被新门槛拒绝，诊断路径只有未跟踪的`coverage`。本地PowerShell7原生参数复现显示，未引用的`-coverprofile=coverage.out`被拆为`-coverprofile=coverage`与`.out`，导致Go测试通过但覆盖率写入了错误文件名，原预期coverage.out制品也缺失。这是CI参数传递问题，不是产品源文件被修改。
+
+修复将整个参数引用为`'-coverprofile=coverage.out'`，并在Go测试后立即校验预期文件存在且首行是合法mode；不把错误文件加入忽略列表，也不删除现场绕过来源门槛。失败CI和旧dirty包记录保留，修复提交仍须由自己的双系统CI及下载包元数据验证确认。
