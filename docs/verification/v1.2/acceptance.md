@@ -13,7 +13,7 @@
 | 长跑预检 | [60秒记录](../../performance/v1.2/soak-preflight.json) | 586次写入、2轮变更及重启/清理通过，只是短时预检 |
 | 性能工具 | [实验口径](../../performance/v1.2/RUNBOOK.md)及runner/fixture回归 | 极小预检不代表完整同机性能对照，无最终性能结论 |
 
-最近完成的代码候选CI：[`ce733ca3a6a1d1e3b3fba8b3329c0dddf7e86717`](https://github.com/XiuGuang-Alter/pulse-go-monitor/commit/ce733ca3a6a1d1e3b3fba8b3329c0dddf7e86717)，[run42495147681](https://github.com/XiuGuang-Alter/pulse-go-monitor/actions/runs/42495147681)，Windows和Ubuntu均成功。包含Go/vet、Ubuntu race、Node回归、Chromium/Firefox、Windows Edge及隔离启动/维护/包测试。后续提交须核对各自CI，不能借用该结果宣称新提交通过。
+已完成的代码候选CI：[`08b9092b1cb0bf119a242ac3e2fa930d4e0de7b3`](https://github.com/XiuGuang-Alter/pulse-go-monitor/commit/08b9092b1cb0bf119a242ac3e2fa930d4e0de7b3)，[run42589999380](https://github.com/XiuGuang-Alter/pulse-go-monitor/actions/runs/42589999380)，Windows和Ubuntu均成功。包含Go/vet、Ubuntu race、Node回归、Chromium/Firefox、Windows Edge及隔离启动/维护/包测试，并实际校验覆盖率文件、构建前后Git clean及二进制来源。后续提交须核对各自CI，不能借用该结果宣称新提交通过。
 
 ## 正式24小时实验
 
@@ -57,3 +57,11 @@
 随后[b3f79ef的CI42588629866](https://github.com/XiuGuang-Alter/pulse-go-monitor/actions/runs/42588629866)在Windows打包前被新门槛拒绝，诊断路径只有未跟踪的`coverage`。本地PowerShell7原生参数复现显示，未引用的`-coverprofile=coverage.out`被拆为`-coverprofile=coverage`与`.out`，导致Go测试通过但覆盖率写入了错误文件名，原预期coverage.out制品也缺失。这是CI参数传递问题，不是产品源文件被修改。
 
 修复将整个参数引用为`'-coverprofile=coverage.out'`，并在Go测试后立即校验预期文件存在且首行是合法mode；不把错误文件加入忽略列表，也不删除现场绕过来源门槛。失败CI和旧dirty包记录保留，修复提交仍须由自己的双系统CI及下载包元数据验证确认。
+
+根因修复提交08b9092的上述CI已全部成功（Ubuntu3m11s、Windows8m26s）。重新下载的1.2.0候选ZIP SHA-256为`ae954ac9d9e2912c3a33a0d1ae71ca8e55d39b26a41d168267b9b4ba44154221`，与同制品SHA文件一致；8个唯一白名单条目，BUILD及实际二进制revision正确、modified=false，coverage.out也已恢复且mode头合法。此结果只关闭候选包来源与覆盖率缺口，不能替代24h、完整性能、正式Release及发布后复验。
+
+## 全分支静态审查
+
+2026-11-09，对v1.1基线fbfd0be至08b9092的64个变更文件做独立只读整体审查，覆盖健康/新鲜度、调度与配置版本、schema迁移/统计保留、维护文件操作、脱敏/前端语义及交付来源。未发现可证实的新Critical/Important缺陷；这是静态结论，不是所有运行条件下无缺陷的保证，也不替代尚未完成的动态验收。
+
+发现并修正一处非阻塞操作说明：页面不显示目标ID，历史导出应在停服前经只读`/api/targets`查询ID，再停止服务，对同一库执行导出，不能把列表序号当ID。已有导出测试直接持有创建响应的ID，未覆盖这处说明缺口。本次只改文档，不改变冻结产品或长跑判定。
