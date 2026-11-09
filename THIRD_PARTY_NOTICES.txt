@@ -1,4 +1,4 @@
-Third-party notices for Pulse v1.0.0. Dependency versions are pinned in go.mod/go.sum.
+Third-party notices for Pulse. Dependency versions are pinned in go.mod/go.sum.
 === github.com/dustin/go-humanize v1.1.0 / LICENSE ===
 Copyright (c) 2005-2008  Dustin Sallings <dustin@spy.net>
 
