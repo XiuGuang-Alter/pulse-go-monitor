@@ -37,19 +37,20 @@ func TestTaskSupervisorRestartsOnlyFailedWorker(t *testing.T) {
 func TestTaskSupervisorStopCancelsPendingRetry(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	started := make(chan struct{})
+	retrying := make(retryNotification)
 	done := make(chan error, 1)
 	calls := 0
 	go func() {
-		done <- superviseTask(ctx, time.Minute, io.Discard, func(context.Context) error {
+		done <- superviseTask(ctx, time.Minute, retrying, func(context.Context) error {
 			calls++
-			if calls == 1 {
-				close(started)
-			}
 			return errors.New("worker failed")
 		})
 	}()
-	<-started
+	select {
+	case <-retrying:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first failure did not enter the retry delay")
+	}
 	cancel()
 	select {
 	case err := <-done:
@@ -58,5 +59,30 @@ func TestTaskSupervisorStopCancelsPendingRetry(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("stop did not cancel the pending retry")
+	}
+}
+
+type retryNotification chan struct{}
+
+func (n retryNotification) Write(p []byte) (int, error) {
+	select {
+	case n <- struct{}{}:
+	default:
+	}
+	return len(p), nil
+}
+
+func TestTaskSupervisorReportsFailedShutdownWithoutRetry(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	shutdownFailure := errors.New("worker failed to close gracefully")
+	calls := 0
+	err := superviseTask(ctx, time.Millisecond, io.Discard, func(context.Context) error {
+		calls++
+		cancel()
+		return shutdownFailure
+	})
+	if calls != 1 || !errors.Is(err, shutdownFailure) {
+		t.Fatalf("calls = %d, error = %v, want one run and shutdown failure", calls, err)
 	}
 }

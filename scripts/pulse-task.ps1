@@ -18,8 +18,10 @@ if ($Action -ne 'Install') {
 
 $account = [Security.Principal.WindowsIdentity]::GetCurrent()
 try { $sid = $account.User.Value } finally { $account.Dispose() }
-$identityHash = [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($sid))
-$taskName = 'Pulse-' + [Convert]::ToHexString($identityHash).Substring(0, 16).ToLowerInvariant() + '-' + $Profile.ToLowerInvariant()
+$digest = [Security.Cryptography.SHA256]::Create()
+try { $identityHash = $digest.ComputeHash([Text.Encoding]::UTF8.GetBytes($sid)) } finally { $digest.Dispose() }
+$identityPrefix = [BitConverter]::ToString($identityHash, 0, 8).Replace('-', '').ToLowerInvariant()
+$taskName = 'Pulse-' + $identityPrefix + '-' + $Profile.ToLowerInvariant()
 $source = 'Pulse Go Monitor interactive task v1'
 $scheduler = New-Object -ComObject Schedule.Service
 $scheduler.Connect()
@@ -66,6 +68,7 @@ function Read-PulseTask($Task) {
 }
 
 function Stop-PulseTask($Task, [string]$Token) {
+    $wasActive = Test-ActiveTask $Task
     $waiting = [Diagnostics.Stopwatch]::StartNew()
     $signalled = $false
     while (Test-ActiveTask $Task) {
@@ -82,6 +85,9 @@ function Stop-PulseTask($Task, [string]$Token) {
         }
         Start-Sleep -Milliseconds 150
     }
+    if ($wasActive -and [int]$Task.LastTaskResult -ne 0) {
+        throw "Pulse 已退出，但任务结果为 $($Task.LastTaskResult)。请检查状态后再维护数据库。"
+    }
 }
 
 function Get-LocalPath([string]$Path, [string]$Base) {
@@ -90,65 +96,86 @@ function Get-LocalPath([string]$Path, [string]$Base) {
     $resolved
 }
 
-$task = Find-Task
-if ($Action -eq 'Install') {
-    if ($null -ne $task) { throw '同名任务已存在，请先查询 Status；安装不会覆盖现有任务' }
-    $program = Get-Item -LiteralPath (Get-LocalPath $Executable $PWD.ProviderPath)
-    if ($program.PSIsContainer -or $program.Name -ine 'go-monitor.exe') { throw '请选择打包后的 go-monitor.exe' }
-    $databasePath = Get-LocalPath $Database $program.DirectoryName
-    if ([string]::IsNullOrWhiteSpace([IO.Path]::GetFileName($databasePath)) -or (Test-Path -LiteralPath $databasePath -PathType Container)) {
-        throw '数据库路径必须指向文件'
+function Invoke-PulseTask {
+    $task = Find-Task
+    if ($Action -eq 'Install') {
+        if ($null -ne $task) { throw '同名任务已存在，请先查询 Status；安装不会覆盖现有任务' }
+        $program = Get-Item -LiteralPath (Get-LocalPath $Executable $PWD.ProviderPath)
+        if ($program.PSIsContainer -or $program.Name -ine 'go-monitor.exe') { throw '请选择打包后的 go-monitor.exe' }
+        $databasePath = Get-LocalPath $Database $program.DirectoryName
+        if ([string]::IsNullOrWhiteSpace([IO.Path]::GetFileName($databasePath)) -or (Test-Path -LiteralPath $databasePath -PathType Container)) {
+            throw '数据库路径必须指向文件'
+        }
+        $helpText = & $program.FullName task-supervise -h 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0 -or $helpText -notmatch '(?m)^\s+-windows-stop-event\b') { throw '此版本的 Pulse 不支持计划任务正常停止' }
+        $token = [Guid]::NewGuid().ToString('N')
+        $extra = if ($DesktopAlerts) { ' -desktop-alerts' } else { '' }
+        $definition = $scheduler.NewTask(0)
+        $definition.RegistrationInfo.Source = $source
+        $definition.RegistrationInfo.Description = 'Pulse 当前用户登录后启动的本机监测任务'
+        $definition.Principal.UserId = $sid
+        $definition.Principal.LogonType = 3 # TASK_LOGON_INTERACTIVE_TOKEN
+        $definition.Principal.RunLevel = 0 # TASK_RUNLEVEL_LUA
+        $settings = $definition.Settings
+        $settings.ExecutionTimeLimit = 'PT0S'
+        $settings.MultipleInstances = 2 # TASK_INSTANCES_IGNORE_NEW
+        $settings.DisallowStartIfOnBatteries = $false
+        $settings.StopIfGoingOnBatteries = $false
+        $settings.WakeToRun = $false
+        $trigger = $definition.Triggers.Create(9) # TASK_TRIGGER_LOGON
+        $trigger.UserId = $sid
+        $trigger.Enabled = $true
+        $exec = $definition.Actions.Create(0) # TASK_ACTION_EXEC
+        $exec.Path = $program.FullName
+        $exec.WorkingDirectory = $program.DirectoryName
+        $exec.Arguments = 'task-supervise -addr 127.0.0.1:' + $Port + ' -db "' + $databasePath + '"' + $extra + ' -windows-stop-event ' + $token
+        $task = $folder.RegisterTaskDefinition($taskName, $definition, 2, $sid, $null, 3, $null) # TASK_CREATE
+        Read-PulseTask $task
+        return
     }
-    $helpText = & $program.FullName task-supervise -h 2>&1 | Out-String
-    if ($LASTEXITCODE -ne 0 -or $helpText -notmatch '(?m)^\s+-windows-stop-event\b') { throw '此版本的 Pulse 不支持计划任务正常停止' }
-    $token = [Guid]::NewGuid().ToString('N')
-    $extra = if ($DesktopAlerts) { ' -desktop-alerts' } else { '' }
-    $definition = $scheduler.NewTask(0)
-    $definition.RegistrationInfo.Source = $source
-    $definition.RegistrationInfo.Description = 'Pulse 当前用户登录后启动的本机监测任务'
-    $definition.Principal.UserId = $sid
-    $definition.Principal.LogonType = 3 # TASK_LOGON_INTERACTIVE_TOKEN
-    $definition.Principal.RunLevel = 0 # TASK_RUNLEVEL_LUA
-    $settings = $definition.Settings
-    $settings.ExecutionTimeLimit = 'PT0S'
-    $settings.MultipleInstances = 2 # TASK_INSTANCES_IGNORE_NEW
-    $settings.DisallowStartIfOnBatteries = $false
-    $settings.StopIfGoingOnBatteries = $false
-    $settings.WakeToRun = $false
-    $trigger = $definition.Triggers.Create(9) # TASK_TRIGGER_LOGON
-    $trigger.UserId = $sid
-    $trigger.Enabled = $true
-    $exec = $definition.Actions.Create(0) # TASK_ACTION_EXEC
-    $exec.Path = $program.FullName
-    $exec.WorkingDirectory = $program.DirectoryName
-    $exec.Arguments = 'task-supervise -addr 127.0.0.1:' + $Port + ' -db "' + $databasePath + '"' + $extra + ' -windows-stop-event ' + $token
-    $task = $folder.RegisterTaskDefinition($taskName, $definition, 2, $sid, $null, 3, $null) # TASK_CREATE
-    Read-PulseTask $task
-    return
+
+    if ($null -eq $task) {
+        if ($Action -in 'Start','Stop') { throw '任务尚未安装' }
+        Read-PulseTask $null
+        return
+    }
+    $token = Get-TaskStopToken $task
+    switch ($Action) {
+        'Status' { Read-PulseTask $task }
+        'Start' {
+            if (-not $task.Enabled) {
+                if (Test-ActiveTask $task) { throw '任务仍在停止，请等 Status 显示 Running=False 后再启动' }
+                $task.Enabled = $true
+            }
+            if (-not (Test-ActiveTask $task)) { [void]$task.Run($null) }
+            Read-PulseTask $task
+        }
+        'Stop' {
+            $task.Enabled = $false
+            Stop-PulseTask $task $token
+            Read-PulseTask $task
+        }
+        'Remove' {
+            $task.Enabled = $false
+            Stop-PulseTask $task $token
+            $current = Find-Task
+            if ($null -ne $current -and ((Get-TaskStopToken $current) -cne $token -or (Test-ActiveTask $current) -or $current.Enabled)) {
+                throw '任务在停止期间发生变化，拒绝删除当前任务'
+            }
+            if ($null -ne $current) { $folder.DeleteTask($taskName, 0) }
+            Read-PulseTask $null
+        }
+    }
 }
 
-if ($null -eq $task) {
-    if ($Action -in 'Start','Stop') { throw '任务尚未安装' }
-    Read-PulseTask $null
-    return
-}
-$token = Get-TaskStopToken $task
-switch ($Action) {
-    'Status' { Read-PulseTask $task }
-    'Start' {
-        if (-not $task.Enabled) { $task.Enabled = $true }
-        if (-not (Test-ActiveTask $task)) { [void]$task.Run($null) }
-        Read-PulseTask $task
-    }
-    'Stop' {
-        $task.Enabled = $false
-        Stop-PulseTask $task $token
-        Read-PulseTask $task
-    }
-    'Remove' {
-        $task.Enabled = $false
-        Stop-PulseTask $task $token
-        $folder.DeleteTask($taskName, 0)
-        Read-PulseTask $null
-    }
+$mutex = [Threading.Mutex]::new($false, 'Global\PulseTaskManagement.' + $taskName)
+$locked = $false
+try {
+    try { $locked = $mutex.WaitOne([TimeSpan]::FromSeconds(25)) }
+    catch [Threading.AbandonedMutexException] { $locked = $true }
+    if (-not $locked) { throw '另一条命令正在管理此任务，请稍后再试' }
+    Invoke-PulseTask
+} finally {
+    if ($locked) { $mutex.ReleaseMutex() }
+    $mutex.Dispose()
 }

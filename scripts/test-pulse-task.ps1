@@ -118,7 +118,30 @@ try {
     & $binary maintain verify -in $backup | Out-Null
     if ($LASTEXITCODE -ne 0) { throw '备份验证失败' }
     $report.graceful_exit_and_backup = $true
-    & $scriptPath Start -Profile $profile | Out-Null
+    $controlLock = [Threading.Mutex]::new($false,'Global\PulseTaskManagement.' + $installed.TaskName)
+    $locked = $controlLock.WaitOne([TimeSpan]::FromSeconds(4))
+    if (-not $locked) { $controlLock.Dispose(); throw '测试无法获得任务管理锁' }
+    $nextStart = $null
+    try {
+        $nextStart = Start-Job -ArgumentList $scriptPath,$profile -ScriptBlock {
+            param($ControlScript,$TaskProfile)
+            '尝试并发启动'
+            & $ControlScript Start -Profile $TaskProfile
+        }
+        try {
+            $null = Wait-For { '尝试并发启动' -in @(Receive-Job $nextStart -Keep -ErrorAction Stop) } 10 '其他进程尝试启动'
+            Start-Sleep -Milliseconds 400
+            if ($folder.GetTask($installed.TaskName).Enabled -or $nextStart.State -ne 'Running') { throw '并发 Start 绕过管理锁' }
+        } finally { $controlLock.ReleaseMutex(); $locked = $false }
+        $null = Wait-Job $nextStart -Timeout 10
+        if ($nextStart.State -ne 'Completed') { throw '管理锁释放后 Start 未完成' }
+        Receive-Job $nextStart -ErrorAction Stop | Out-Null
+    } finally {
+        if ($locked) { $controlLock.ReleaseMutex() }
+        $controlLock.Dispose()
+        if ($null -ne $nextStart) { Remove-Job $nextStart -Force }
+    }
+    $report.management_operations_serialized = $true
     $null = Wait-For { (Read-Pulse).monitor_health.instance_id } 20 '维护后重新启动'
     if (-not (& $scriptPath Status -Profile $profile).Enabled) { throw 'Start 未恢复已暂停的登录任务' }
     $report.start_reenabled_task = $true

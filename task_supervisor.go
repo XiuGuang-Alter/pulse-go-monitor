@@ -18,7 +18,7 @@ func superviseTask(ctx context.Context, delay time.Duration, errOut io.Writer, r
 		}
 		err := runWorker(ctx)
 		if err == nil || ctx.Err() != nil {
-			return nil
+			return err
 		}
 		if attempt == taskMaxRestarts {
 			return err
