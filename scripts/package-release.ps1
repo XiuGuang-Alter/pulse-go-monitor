@@ -1,5 +1,5 @@
 #Requires -Version 7.0
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.3.0',[switch]$Unstamped)
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.4.0',[switch]$Unstamped)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $commit=git -C $root rev-parse --verify HEAD 2>$null
@@ -33,6 +33,7 @@ if(-not $Unstamped){
     if($LASTEXITCODE -ne 0 -or $afterDirty.Count){throw ('构建后Git状态异常：'+($afterDirty -join '; '))}
 }
 foreach($name in @('启动监测.cmd','启动演示.cmd','LICENSE','THIRD_PARTY_NOTICES.txt')){Copy-Item -LiteralPath (Join-Path $root $name) -Destination $stage}
+if ([version]$Version -ge [version]'1.4.0') { Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'pulse-task.ps1') -Destination $stage }
 Copy-Item -LiteralPath (Join-Path $root 'docs/下载包使用说明.md') -Destination (Join-Path $stage '使用说明.md')
 Copy-Item -LiteralPath (Join-Path $root 'docs/数据维护.md') -Destination (Join-Path $stage '数据维护.md')
 @("Pulse v$Version", "Commit: $commit",'Target: windows/amd64',('Built UTC: '+[DateTime]::UtcNow.ToString('o'))) | Set-Content -LiteralPath (Join-Path $stage 'BUILD.txt') -Encoding utf8

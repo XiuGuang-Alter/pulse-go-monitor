@@ -21,6 +21,7 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 	demo := flags.Bool("demo", false, "同时启动本地演示接口并添加示例目标")
 	demoAddress := flags.String("demo-addr", "127.0.0.1:8091", "本机演示接口地址（允许端口0）")
 	desktopAlerts := flags.Bool("desktop-alerts", false, "在 Windows 桌面提交故障和恢复提醒")
+	taskStop := flags.String("windows-stop-event", "", "Windows 计划任务的停止标识，由任务脚本设置")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -29,6 +30,10 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 	}
 	if flags.NArg() != 0 || !loopbackAddress(*address) || !loopbackAddress(*demoAddress) || *concurrency < 1 || *concurrency > 32 {
 		fmt.Fprintln(errOut, "参数无效：仅支持回环地址，并发数为1–32；使用 serve -h 查看用法")
+		return 2
+	}
+	if *taskStop != "" && !validTaskStopToken(*taskStop) {
+		fmt.Fprintln(errOut, "计划任务停止标识须为 32 位小写十六进制字符")
 		return 2
 	}
 	var notifier desktopNotifier
@@ -40,6 +45,21 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 			return 2
 		}
 	}
+	if *taskStop != "" {
+		taskContext, cleanup, err := withTaskStopEvent(ctx, *taskStop)
+		if err != nil {
+			fmt.Fprintln(errOut, "启动计划任务停止监听失败：", err)
+			return 1
+		}
+		defer cleanup()
+		ctx = taskContext
+	}
+	listener, err := net.Listen("tcp", *address)
+	if err != nil {
+		fmt.Fprintln(errOut, "监听失败：", err)
+		return 1
+	}
+	defer listener.Close()
 	store, err := OpenStore(*path)
 	if err != nil {
 		fmt.Fprintln(errOut, "打开数据库失败：", err)
@@ -52,12 +72,6 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 		return 1
 	}
 	defer scheduler.Stop()
-	listener, err := net.Listen("tcp", *address)
-	if err != nil {
-		fmt.Fprintln(errOut, "监听失败：", err)
-		return 1
-	}
-	defer listener.Close()
 	if *demo {
 		_, cleanup, err := startDemo(store, *demoAddress)
 		if err != nil {

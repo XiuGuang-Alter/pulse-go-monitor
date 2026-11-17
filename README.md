@@ -29,6 +29,8 @@ Windows用户从 [Releases](https://github.com/XiuGuang-Alter/pulse-go-monitor/r
 
 从 v1.3 起，可在已登录的 Windows 桌面会话中用 `.\go-monitor.exe serve -desktop-alerts` 启用提醒。当前配置连续失败两次提醒一次，下一次成功提醒恢复。关闭网页后，只要 Pulse 进程仍在运行，就可以继续提交提醒。Windows 通知设置决定是否显示横幅。编辑、暂停后恢复或重启时，连续失败重新计数。
 
+从 v1.4 起，Windows 包内的 `pulse-task.ps1` 可为当前用户安装登录任务。需要立刻运行时执行 `Start`，备份或升级前先执行 `Stop` 并查看状态。具体命令见 [Windows 使用说明](docs/下载包使用说明.md#登录后自动运行)。
+
 ## 升级与回退
 
 从 v1.2 升到 v1.3 时，两版均使用 schema4。先停止旧程序，校验升级前备份，再在新目录启动新版并核对目标与历史。建议将备份恢复到新路径后，用新版打开该路径。
