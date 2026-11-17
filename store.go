@@ -206,16 +206,23 @@ func (s *Store) ListTargets(ctx context.Context) ([]Target, error) {
 	return targets, nil
 }
 func (s *Store) RecordCheck(ctx context.Context, t Target, r Result, checkedAt time.Time) error {
+	_, err := s.recordCheck(ctx, t, r, checkedAt)
+	return err
+}
+
+// The boolean reports whether a committed result belongs to the enabled
+// configuration. Historical checks can still be saved after an edit or pause.
+func (s *Store) recordCheck(ctx context.Context, t Target, r Result, checkedAt time.Time) (bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer tx.Rollback()
 	var exists int
 	if err = tx.QueryRowContext(ctx, "SELECT 1 FROM targets WHERE id=?", t.ID).Scan(&exists); errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
+		return false, ErrNotFound
 	} else if err != nil {
-		return err
+		return false, err
 	}
 	var total any
 	if r.durationMeasured || r.TotalDuration > 0 {
@@ -227,20 +234,27 @@ func (s *Store) RecordCheck(ctx context.Context, t Target, r Result, checkedAt t
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO checks(target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot,error_category) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, t.ID, t.URL, r.URL, r.StatusCode, float64(r.Duration)/float64(time.Millisecond), r.Kind, r.Detail, checkedAt.UnixMilli(), total, t.Version, string(rules), normalizedErrorCategory(r.Kind, r.StatusCode, r.ErrorCategory))
 	if err != nil {
-		return err
+		return false, err
 	}
 	_, err = tx.ExecContext(ctx, `DELETE FROM checks WHERE target_id=? AND (checked_at<? OR id NOT IN (SELECT id FROM checks WHERE target_id=? ORDER BY id DESC LIMIT 1000))`, t.ID, time.Now().Add(-30*24*time.Hour).UnixMilli(), t.ID)
 	if err != nil {
-		return err
+		return false, err
 	}
-	_, err = tx.ExecContext(ctx, `UPDATE targets SET next_check_at=? WHERE id=? AND version=?`, time.Now().Add(time.Duration(t.IntervalSeconds)*time.Second).UnixMilli(), t.ID, t.Version)
+	updated, err := tx.ExecContext(ctx, `UPDATE targets SET next_check_at=? WHERE id=? AND version=?`, time.Now().Add(time.Duration(t.IntervalSeconds)*time.Second).UnixMilli(), t.ID, t.Version)
 	if err != nil {
-		return err
+		return false, err
+	}
+	rows, err := updated.RowsAffected()
+	if err != nil {
+		return false, err
 	}
 	if err = recordDaily(ctx, tx, t.ID, r, checkedAt, time.Now()); err != nil {
-		return err
+		return false, err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return t.Enabled && rows == 1, nil
 }
 func (s *Store) History(ctx context.Context, id int64, limit int, before int64) ([]CheckRecord, error) {
 	if limit < 1 || limit > 200 || before < 0 {

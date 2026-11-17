@@ -27,6 +27,8 @@ Windows用户从 [Releases](https://github.com/XiuGuang-Alter/pulse-go-monitor/r
 .\go-monitor.exe 'https://example.com'
 ```
 
+包含桌面提醒的 Windows 构建可在已登录的桌面会话中用 `.\go-monitor.exe serve -desktop-alerts` 启用。当前配置连续失败两次提醒一次，下一次成功提醒恢复。关闭监测网页后提醒仍可运行，Pulse 进程需要保持运行。Windows 通知设置决定是否显示横幅。编辑、暂停后恢复或重启时，连续失败重新计数。
+
 ## 升级与回退
 
 先停止旧程序，用v1.2的独立维护命令对升级前数据库备份并校验，再启动新版。数据库1/2/3会在同一事务升级至4，目标与历史ID保留。**旧程序不能直接打开schema4**；回退时停止新版，把升级前备份恢复到新路径，再用对应旧版打开。不要运行中只复制 `.db` 而遗漏 WAL 文件。

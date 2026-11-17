@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"time"
@@ -19,6 +20,7 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 	concurrency := flags.Int("concurrency", 4, "全局并发数1–32")
 	demo := flags.Bool("demo", false, "同时启动本地演示接口并添加示例目标")
 	demoAddress := flags.String("demo-addr", "127.0.0.1:8091", "本机演示接口地址（允许端口0）")
+	desktopAlerts := flags.Bool("desktop-alerts", false, "在 Windows 桌面提交故障和恢复提醒")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -28,6 +30,15 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 	if flags.NArg() != 0 || !loopbackAddress(*address) || !loopbackAddress(*demoAddress) || *concurrency < 1 || *concurrency > 32 {
 		fmt.Fprintln(errOut, "参数无效：仅支持回环地址，并发数为1–32；使用 serve -h 查看用法")
 		return 2
+	}
+	var notifier desktopNotifier
+	if *desktopAlerts {
+		var err error
+		notifier, err = newDesktopNotifier()
+		if err != nil {
+			fmt.Fprintln(errOut, err)
+			return 2
+		}
 	}
 	store, err := OpenStore(*path)
 	if err != nil {
@@ -56,6 +67,11 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 		defer cleanup()
 	}
 	server := &http.Server{Handler: NewApp(store, scheduler).Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
+	if notifier != nil {
+		delivery := startDesktopAlertDelivery(ctx, store, notifier, log.New(errOut, "", log.LstdFlags))
+		defer delivery.stop()
+		scheduler.emitDesktopAlert = delivery.enqueue
+	}
 	scheduler.Start()
 	completed := make(chan error, 1)
 	go func() { completed <- server.Serve(listener) }()
