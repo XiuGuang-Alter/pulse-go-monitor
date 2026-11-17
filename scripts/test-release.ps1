@@ -1,6 +1,6 @@
 #Requires -Version 7.0
 param(
-    [string]$ZipPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'dist/pulse-v1.2.0-windows-amd64.zip'),
+    [string]$ZipPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'dist/pulse-v1.3.0-windows-amd64.zip'),
     [ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedCommit
 )
 $ErrorActionPreference='Stop'
@@ -11,6 +11,7 @@ $archive=[IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $ZipPath)
 try{
     $allowed=@('go-monitor.exe','启动监测.cmd','启动演示.cmd','LICENSE','THIRD_PARTY_NOTICES.txt','使用说明.md','数据维护.md','BUILD.txt')
     if($archive.Entries.Count -ne $allowed.Count){throw '下载包文件数不符合白名单'}
+    if(@($archive.Entries.FullName | Sort-Object -Unique).Count -ne $allowed.Count){throw '下载包含重复条目'}
     foreach($entry in $archive.Entries){if($entry.FullName -notin $allowed){throw "下载包含非发布文件：$($entry.FullName)"}}
 }finally{$archive.Dispose()}
 Expand-Archive -LiteralPath $ZipPath -DestinationPath $directory
@@ -25,6 +26,10 @@ $oldPath=$env:PATH
 $process=$null
 try{
     $env:PATH="$env:SystemRoot\System32;$env:SystemRoot"
+    if([version]$expectedVersion -ge [version]'1.3.0'){
+        $help=& (Join-Path $directory 'go-monitor.exe') serve -h 2>&1 | Out-String
+        if($LASTEXITCODE -ne 0 -or $help -notmatch '(?m)^\s+-desktop-alerts\s*$'){throw '下载包缺少 Windows 桌面提醒启动选项'}
+    }
     $out=Join-Path $directory 'stdout.log'
     $process=Start-Process -FilePath (Join-Path $directory 'go-monitor.exe') -ArgumentList @('serve','-addr','127.0.0.1:0','-demo','-demo-addr','127.0.0.1:0','-db','data/smoke.db') -WorkingDirectory $directory -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError (Join-Path $directory 'stderr.log') -PassThru
     $base=$null

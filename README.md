@@ -16,7 +16,7 @@ v1.2在原有监测功能上增加：
 
 ## 快速开始
 
-Windows用户从 [Releases](https://github.com/XiuGuang-Alter/pulse-go-monitor/releases) 下载 `pulse-v1.2.0-windows-amd64.zip`，解压到可写目录，双击 `启动演示.cmd`，打开 http://127.0.0.1:8080 。正常、500及超时演示接口在8091端口；关闭终端前优先按Ctrl+C正常退出。
+Windows用户从 [Releases](https://github.com/XiuGuang-Alter/pulse-go-monitor/releases) 下载对应版本的 `pulse-v<版本>-windows-amd64.zip`，解压到可写目录，双击 `启动演示.cmd`，打开 http://127.0.0.1:8080 。正常、500及超时演示接口在8091端口；关闭终端前优先按Ctrl+C正常退出。
 
 使用自己的目标双击 `启动监测.cmd`。默认数据库 `data/monitor.db`；演示脚本单独使用 `data/demo.db`。数据位于启动工作目录，启动脚本会先进入程序目录。下载校验及运行说明见 [下载包使用说明](docs/下载包使用说明.md)。
 
@@ -27,11 +27,13 @@ Windows用户从 [Releases](https://github.com/XiuGuang-Alter/pulse-go-monitor/r
 .\go-monitor.exe 'https://example.com'
 ```
 
-包含桌面提醒的 Windows 构建可在已登录的桌面会话中用 `.\go-monitor.exe serve -desktop-alerts` 启用。当前配置连续失败两次提醒一次，下一次成功提醒恢复。关闭监测网页后提醒仍可运行，Pulse 进程需要保持运行。Windows 通知设置决定是否显示横幅。编辑、暂停后恢复或重启时，连续失败重新计数。
+从 v1.3 起，可在已登录的 Windows 桌面会话中用 `.\go-monitor.exe serve -desktop-alerts` 启用提醒。当前配置连续失败两次提醒一次，下一次成功提醒恢复。关闭网页后，只要 Pulse 进程仍在运行，就可以继续提交提醒。Windows 通知设置决定是否显示横幅。编辑、暂停后恢复或重启时，连续失败重新计数。
 
 ## 升级与回退
 
-先停止旧程序，用v1.2的独立维护命令对升级前数据库备份并校验，再启动新版。数据库1/2/3会在同一事务升级至4，目标与历史ID保留。**旧程序不能直接打开schema4**；回退时停止新版，把升级前备份恢复到新路径，再用对应旧版打开。不要运行中只复制 `.db` 而遗漏 WAL 文件。
+从 v1.2 升到 v1.3 时，两版均使用 schema4。先停止旧程序，校验升级前备份，再在新目录启动新版并核对目标与历史。建议将备份恢复到新路径后，用新版打开该路径。
+
+从更早的版本升级时，数据库1/2/3会在同一事务升级至4，目标与历史ID保留。v1.0/v1.1无法直接打开schema4。回退时停止新版，把升级前备份恢复到新路径，再用对应旧版打开。不要运行中只复制 `.db` 而遗漏 WAL 文件。
 
 日汇总只会回填仍保留的旧明细，标记“迁移前历史不完整”；已淘汰的记录无法恢复。详细步骤见 [下载包使用说明](docs/下载包使用说明.md)。
 
