@@ -37,7 +37,7 @@ func TestTaskSupervisorRestartsOnlyFailedWorker(t *testing.T) {
 func TestTaskSupervisorStopCancelsPendingRetry(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	retrying := make(retryNotification)
+	retrying := make(retryNotification, 1)
 	done := make(chan error, 1)
 	calls := 0
 	go func() {
