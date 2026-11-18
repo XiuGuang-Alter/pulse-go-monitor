@@ -218,10 +218,15 @@ func (s *Scheduler) launch(target Target) error {
 			}
 		}
 		completedAt := time.Now()
-		if s.ctx.Err() != nil {
+		// Stop and the transition to saving use the same lock. Stop cancels
+		// unfinished checks, then waits for saves that already crossed this point.
+		s.mu.Lock()
+		stopping := s.stopping
+		s.mu.Unlock()
+		if stopping {
 			return
 		}
-		ctx, cancel := context.WithTimeout(s.ctx, storeOperationTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), storeOperationTimeout)
 		defer cancel()
 		event, err := s.store.recordCheckWithEvents(ctx, target, result, checkedAt, completedAt, s.instanceID, s.emitDesktopAlert != nil)
 		if err != nil && !errors.Is(err, ErrNotFound) && s.ctx.Err() == nil {

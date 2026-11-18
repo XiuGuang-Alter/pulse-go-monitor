@@ -60,7 +60,7 @@ func ExportConfiguration(ctx context.Context, source, dest string, full bool) er
 		return err
 	}
 	if version < 1 || version > currentSchemaVersion {
-		return fmt.Errorf("不支持数据库版本（支持1–4）")
+		return fmt.Errorf("不支持数据库版本（支持1–%d）", currentSchemaVersion)
 	}
 	rulesColumn := "'{}'"
 	if version >= 3 {
@@ -425,7 +425,7 @@ func ExportHistory(ctx context.Context, source, dest string, targetID int64, fro
 		return err
 	}
 	if version < 1 || version > currentSchemaVersion {
-		return fmt.Errorf("不支持数据库版本（支持1–4）")
+		return fmt.Errorf("不支持数据库版本（支持1–%d）", currentSchemaVersion)
 	}
 	var exists int
 	if err = tx.QueryRowContext(ctx, "SELECT 1 FROM targets WHERE id=?", targetID).Scan(&exists); errors.Is(err, sql.ErrNoRows) {

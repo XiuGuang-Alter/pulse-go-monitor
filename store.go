@@ -266,18 +266,23 @@ func (s *Store) recordCheck(ctx context.Context, t Target, r Result, checkedAt t
 		return false, err
 	}
 	var event *AlertEvent
-	if t.Enabled && rows == 1 && len(options) > 0 {
-		checkID, e := inserted.LastInsertId()
-		if e != nil {
-			return false, e
-		}
-		completedAt := options[0].completedAt
-		if completedAt.IsZero() {
-			completedAt = time.Now()
-		}
-		event, err = recordAlertTx(ctx, tx, t, r, checkID, completedAt, options[0])
-		if err != nil {
+	if len(options) > 0 {
+		if err = pruneExpiredIncidents(ctx, tx, time.Now()); err != nil {
 			return false, err
+		}
+		if t.Enabled && rows == 1 {
+			checkID, e := inserted.LastInsertId()
+			if e != nil {
+				return false, e
+			}
+			completedAt := options[0].completedAt
+			if completedAt.IsZero() {
+				completedAt = time.Now()
+			}
+			event, err = recordAlertTx(ctx, tx, t, r, checkID, completedAt, options[0])
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {

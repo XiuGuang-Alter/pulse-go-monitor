@@ -77,6 +77,28 @@ test('故障过程记录首次失败、恢复、分页与筛选', async ({page, 
  await page.locator('#incident-more').click();
  await expect(page.locator('#incident-rows tr')).toHaveCount(51);
  await expect(page.locator('#incident-more')).toBeDisabled();
+ let releaseOld;
+ const held = new Promise((resolve) => { releaseOld = resolve; });
+ const delayed = async (route) => {
+  const query = new URL(route.request().url()).searchParams;
+  if (query.get('status') !== 'recovered') return route.continue();
+  await held;
+  try { await route.continue(); } catch { /* The obsolete request can already be canceled. */ }
+ };
+ await page.route('**/api/incidents?*', delayed);
+ const oldRequest = page.waitForRequest((r) => r.url().includes('status=recovered'));
+ await page.locator('#incident-status').selectOption('recovered');
+ await oldRequest;
+ try {
+  await page.locator('#incident-status').selectOption('interrupted');
+  await expect(page.locator('#incident-rows tr')).toHaveCount(50);
+ } finally {
+  releaseOld();
+ }
+ await page.unroute('**/api/incidents?*', delayed);
+ await expect(page.locator('#incident-rows tr').first()).toContainText('<img data-example>');
+ await page.locator('#incident-more').click();
+ await expect(page.locator('#incident-rows tr')).toHaveCount(51);
  await page.route('**/api/incidents?*', route => route.abort());
  await page.locator('#incident-refresh').click();
  await expect(page.locator('#incident-error')).toBeVisible();

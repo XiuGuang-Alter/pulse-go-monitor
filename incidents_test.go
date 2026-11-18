@@ -90,6 +90,10 @@ func TestIncidentAPIAndRetention(t *testing.T) {
 	if rows := read(""); len(rows) != 1 || rows[0].Status != "active" {
 		t.Fatalf("expired closed rows visible %+v", rows)
 	}
+	saveIncidentSample(t, s, current, "timeout", scheduler.instanceID, time.Now())
+	if err = s.db.QueryRow("SELECT COUNT(*) FROM incidents").Scan(&count); err != nil || count != 1 {
+		t.Fatalf("normal sampling did not physically remove expired history: %d %v", count, err)
+	}
 }
 
 // Save checks through the production transaction, injecting only its observation clock.
@@ -253,5 +257,51 @@ func TestIncidentShutdownAndRestart(t *testing.T) {
 	var pending int
 	if err = s.db.QueryRow("SELECT COUNT(*) FROM alert_states").Scan(&pending); err != nil || pending != 0 {
 		t.Fatalf("stale state %d %v", pending, err)
+	}
+}
+
+func TestIncidentShutdownLetsInProgressSaveCommit(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	target, err := s.SaveTarget(ctx, 0, inputFor("http://example.invalid/"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduler, err := NewScheduler(s, 1, func(context.Context, string, time.Duration) Result {
+		return Result{Kind: "ok"}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer scheduler.Stop()
+	saveIncidentSample(t, s, target, "timeout", scheduler.instanceID, time.Now())
+	saveIncidentSample(t, s, target, "timeout", scheduler.instanceID, time.Now())
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	waiters := s.db.Stats().WaitCount
+	if err = scheduler.launch(target); err != nil {
+		t.Fatal(err)
+	}
+	await(t, func() bool { return s.db.Stats().WaitCount > waiters })
+	stopped := make(chan struct{})
+	go func() {
+		scheduler.Stop()
+		close(stopped)
+	}()
+	<-scheduler.ctx.Done()
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-stopped:
+	case <-time.After(6 * time.Second):
+		t.Fatal("stop did not complete")
+	}
+	items := incidentList(t, s)
+	if len(items) != 1 || items[0].Status != "recovered" {
+		t.Fatalf("normal shutdown lost a recovery already in storage: %+v", items)
 	}
 }

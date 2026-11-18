@@ -26,6 +26,7 @@ CREATE TABLE incidents (
 );
 CREATE UNIQUE INDEX incidents_one_active ON incidents(target_id) WHERE status='active';
 CREATE INDEX incidents_target_id ON incidents(target_id,id DESC);
+CREATE INDEX incidents_expiry ON incidents(closed_at) WHERE closed_at IS NOT NULL;
 CREATE INDEX incidents_closed ON incidents(target_id,closed_at DESC,id DESC) WHERE closed_at IS NOT NULL;`
 
 const incidentRetention = 30 * 24 * time.Hour
@@ -110,6 +111,11 @@ func interruptRuntimeIncidents(ctx context.Context, tx *sql.Tx, session, reason 
 
 type incidentExecutor interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func pruneExpiredIncidents(ctx context.Context, db incidentExecutor, now time.Time) error {
+	_, err := db.ExecContext(ctx, "DELETE FROM incidents WHERE closed_at<?", now.Add(-incidentRetention).UnixMilli())
+	return err
 }
 
 func pruneIncidents(ctx context.Context, db incidentExecutor, targetID int64, now time.Time) error {
