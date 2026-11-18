@@ -310,7 +310,8 @@
         <button id="incident-refresh" class="button subtle">更新最新记录</button>
       </div>
       <p id="incident-error" class="notice error" role="alert" hidden></p>
-      <div class="history-scroll"><table class="incident-table">
+      <p class="incident-scroll-hint muted small">横向滚动可查看恢复状态和时长。</p>
+      <div class="history-scroll" tabindex="0" role="region" aria-label="故障过程列表"><table class="incident-table">
         <thead><tr><th>目标</th><th>首次失败 / 确认</th><th>最后失败</th><th>恢复 / 中断</th><th>时长</th></tr></thead>
         <tbody id="incident-rows"></tbody>
       </table></div>

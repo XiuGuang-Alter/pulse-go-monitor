@@ -1048,3 +1048,6 @@ input[type="checkbox"] {
 .incident-controls label { display:grid; gap:5px; flex:1 1 155px; min-width:0; }
 .incident-controls select { width:100%; }
 .history-scroll .incident-table { min-width:740px; }
+.incident-table td small { display:block; margin-top:4px; color:var(--muted); }
+.incident-scroll-hint { display:none; }
+@media (max-width: 800px) { .incident-scroll-hint { display:block; } }
