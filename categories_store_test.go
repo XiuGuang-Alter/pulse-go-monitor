@@ -136,8 +136,8 @@ func TestMigrationSchema5AllPathsAndRollback(t *testing.T) {
 				if err = s.db.QueryRow("PRAGMA user_version").Scan(&actual); err != nil {
 					t.Fatal(err)
 				}
-				if actual != 5 {
-					t.Fatalf("version=%d want5", actual)
+				if actual != currentSchemaVersion {
+					t.Fatalf("version=%d want%d", actual, currentSchemaVersion)
 				}
 				history, err := s.History(context.Background(), 7, 10, 0)
 				if err != nil || len(history) != 1 || history[0].ID != 11 || categoryOf(t, history[0]) != "" {
@@ -167,7 +167,7 @@ func TestMigrationSchema5AllPathsAndRollback(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = db.Exec("DROP TABLE alert_states; DROP TABLE alert_events; ALTER TABLE checks DROP COLUMN error_category; PRAGMA user_version=3; DROP INDEX checks_stats; CREATE TABLE checks_stats(fixture INTEGER);"); err != nil {
+			if _, err = db.Exec("DROP TABLE incidents; DROP TABLE alert_states; DROP TABLE alert_events; ALTER TABLE checks DROP COLUMN error_category; PRAGMA user_version=3; DROP INDEX checks_stats; CREATE TABLE checks_stats(fixture INTEGER);"); err != nil {
 				t.Fatal(err)
 			}
 			db.Close()

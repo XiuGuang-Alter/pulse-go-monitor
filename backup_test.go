@@ -33,7 +33,7 @@ func TestAlertEventsBackupRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.SchemaVersion != 5 || m.Counts["alert_events"] != 1 || m.Counts["alert_states"] != 1 {
+	if m.SchemaVersion != currentSchemaVersion || m.Counts["alert_events"] != 1 || m.Counts["alert_states"] != 1 || m.Counts["incidents"] != 1 {
 		t.Fatalf("manifest %+v", m)
 	}
 	if _, err = VerifyBackup(ctx, archive); err != nil {
@@ -51,6 +51,10 @@ func TestAlertEventsBackupRestore(t *testing.T) {
 	got, err := copy.AlertEvents(ctx, 0, 50, 0)
 	if err != nil || len(got) != 1 || got[0].NotificationStatus != "disabled" || got[0].CheckID != 2 {
 		t.Fatalf("restored events %+v %v", got, err)
+	}
+	processes, err := copy.Incidents(ctx, target.ID, "active", 50, 0, time.Now())
+	if err != nil || len(processes) != 1 || processes[0].FaultEventID != got[0].ID || processes[0].FirstFailureCheckID != 1 {
+		t.Fatalf("restored incidents %+v %v", processes, err)
 	}
 }
 
@@ -74,6 +78,9 @@ func backupFixture(t *testing.T, version int, wal bool) (string, *sql.DB) {
 	}
 	if version >= 4 {
 		script += `ALTER TABLE checks ADD COLUMN error_category TEXT;`
+	}
+	if version >= 5 {
+		script += schemaV5
 	}
 	if _, err = db.Exec(script); err != nil {
 		t.Fatal(err)
@@ -143,7 +150,7 @@ func backupRows(t *testing.T, db *sql.DB, table string) [][]any {
 }
 
 func TestBackupRoundTripPreservesWALAndLegacy(t *testing.T) {
-	for _, v := range []int{1, 2, 3, 4} {
+	for _, v := range []int{1, 2, 3, 4, 5} {
 		t.Run(string(rune('0'+v)), func(t *testing.T) {
 			source, db := backupFixture(t, v, true)
 			if st, err := os.Stat(source + "-wal"); err != nil || st.Size() == 0 {
@@ -176,6 +183,9 @@ func TestBackupRoundTripPreservesWALAndLegacy(t *testing.T) {
 			tables := []string{"targets", "checks", "sqlite_sequence"}
 			if v >= 2 {
 				tables = append(tables, "daily_summaries", "monitor_metadata")
+			}
+			if v >= 5 {
+				tables = append(tables, "alert_states", "alert_events")
 			}
 			for _, table := range tables {
 				if before, after := backupRows(t, db, table), backupRows(t, restored, table); !reflect.DeepEqual(before, after) {
@@ -221,7 +231,7 @@ func TestBackupCancellationLocksCorruptionAndDestinations(t *testing.T) {
 	if _, err := BackupDatabase(context.Background(), corrupt, filepath.Join(dir, "corrupt.zip")); err == nil {
 		t.Fatal("corruption accepted")
 	}
-	db.Exec("PRAGMA user_version=6")
+	db.Exec("PRAGMA user_version=7")
 	if _, err := BackupDatabase(context.Background(), source, filepath.Join(dir, "future.zip")); err == nil {
 		t.Fatal("future accepted")
 	}

@@ -7,6 +7,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/style.css" />
     <script defer src="/app.js"></script>
+    <script defer src="/incidents.js"></script>
   </head>
   <body>
     <aside class="sidebar">
@@ -24,6 +25,7 @@
           <span>Ⅱ</span> 已暂停
         </button>
         <button id="events-open" class="nav-item"><span>◷</span> 提醒记录</button>
+        <button id="incidents-open" class="nav-item"><span>≋</span> 故障过程</button>
       </nav>
       <div class="side-bottom">
         <button id="help-open" class="nav-item"><span>?</span> 使用说明</button>
@@ -291,6 +293,29 @@
       <p id="event-empty" class="muted" hidden>当前范围暂无故障或恢复记录。</p>
       <p id="event-note" class="muted small" aria-live="polite"></p>
       <div class="dialog-actions"><button id="event-more" class="button">加载更早记录</button><button class="button primary" data-close="events-dialog">完成</button></div>
+    </dialog>
+    <dialog id="incidents-dialog" class="history-dialog" aria-labelledby="incidents-title">
+      <div class="dialog-heading">
+        <h2 id="incidents-title">故障过程</h2>
+        <button class="icon-button" data-close="incidents-dialog" aria-label="关闭故障过程">×</button>
+      </div>
+      <p class="muted small">连续失败两次才确认故障，时长从首次失败完成算起。进行中只计到最后一次失败。已结束记录每个目标最多保留 1000 条、最长 30 天。</p>
+      <div class="incident-controls">
+        <label>监测目标 <select id="incident-target"></select></label>
+        <label>故障状态 <select id="incident-status">
+          <option value="">全部状态</option><option value="active">尚未观察到恢复</option>
+          <option value="recovered">已恢复</option><option value="interrupted">监测中断</option>
+        </select></label>
+        <button id="incident-refresh" class="button subtle">更新最新记录</button>
+      </div>
+      <p id="incident-error" class="notice error" role="alert" hidden></p>
+      <div class="history-scroll"><table class="incident-table">
+        <thead><tr><th>目标</th><th>首次失败 / 确认</th><th>最后失败</th><th>恢复 / 中断</th><th>时长</th></tr></thead>
+        <tbody id="incident-rows"></tbody>
+      </table></div>
+      <p id="incident-empty" class="muted" hidden>当前范围暂无故障过程。</p>
+      <p id="incident-note" class="muted small" role="status"></p>
+      <div class="dialog-actions"><button id="incident-more" class="button" disabled>加载更早记录</button><button class="button primary" data-close="incidents-dialog">完成</button></div>
     </dialog>
     <dialog id="delete-dialog">
       <div class="dialog-heading">

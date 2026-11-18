@@ -10,7 +10,7 @@ v1.2在原有监测功能上增加：
 - URL敏感参数安全展示、结构化错误分类与表单字段/规则定位；实际请求保持原始配置。
 - 独立备份/校验、新路径恢复、配置预检与导入导出、UTC范围历史导出，以及实际保留范围说明。
 
-当前 v1.5 启动时将数据库升级至schema5，v1.4及更早程序不能直接打开升级后的库。先停止服务、保全并校验升级前备份；回退使用旧程序和恢复到新路径的旧schema备份。操作见[数据维护](docs/数据维护.md)。v1.2 已完成[24小时实跑](docs/performance/v1.2/soak/README.md)、[完整同机性能复核](docs/performance/v1.2/full/README.md)、三浏览器及独立审查；历史接口约1ms新增成本及调查结果如实披露。该版本提交、制品和发布后复验按[验收证据](docs/verification/v1.2/acceptance.md)及对应Release记录核对。
+v1.2 的长期运行与性能证据见[24小时实跑](docs/performance/v1.2/soak/README.md)、[同机性能复核](docs/performance/v1.2/full/README.md)及[验收记录](docs/verification/v1.2/acceptance.md)。
 
 ![控制台示例（隔离测试数据）](docs/screenshots/browser-acceptance/桌面总览.png)
 
@@ -35,7 +35,7 @@ Windows用户从 [Releases](https://github.com/XiuGuang-Alter/pulse-go-monitor/r
 
 从 v1.5 起，控制台「提醒记录」可回看故障与恢复，关闭桌面提醒或在其他支持平台运行时也会记录。每目标保留最近1000条且最多30天，删除目标会一并删除。列表区分系统报告显示、提交未确认、失败、队列满、跳过与中断；系统报告显示不代表已阅读。
 
-v1.2 至 v1.4 使用 schema4，当前 v1.5 使用 schema5。停止旧服务（登录任务用 `pulse-task.ps1 Stop`），用新版维护命令备份并校验旧库，恢复到新路径后用新版打开。数据库1/2/3/4在同一事务升级至5，目标与历史ID保留，升级前的检查不会补造提醒事件。v1.4及更早程序无法直接打开schema5；回退须停止新版，把升级前备份恢复到另一个新路径，再用对应旧版打开。不要运行中只复制 `.db` 而遗漏 WAL 文件。
+v1.5 使用 schema5，v1.6 启动时将 schema1–5 升级至 schema6。停止旧服务（登录任务用 `pulse-task.ps1 Stop`），用新版维护命令备份并校验旧库，恢复到新路径后用新版打开。升级保留原有目标、检查和提醒。回退时将升级前备份恢复到另一新路径，再用对应旧版打开。v1.5 及更早程序拒绝 schema6。详细步骤见[数据维护](docs/数据维护.md)。
 
 日汇总只会回填仍保留的旧明细，标记“迁移前历史不完整”；已淘汰的记录无法恢复。详细步骤见 [下载包使用说明](docs/下载包使用说明.md)。
 
@@ -51,6 +51,7 @@ v1.2 至 v1.4 使用 schema4，当前 v1.5 使用 schema5。停止旧服务（�
 - 默认200–299通过，跟随重定向；可选允许状态码、正文包含及JSON Pointer标量相等规则，所有规则须同时满足。正文按解压后1MiB限制读取；未配置正文规则时不等待正文。
 - 原响应耗时到最终响应头或请求失败；新增完整耗时包含正文和断言。旧历史没有完整耗时和配置版本，显示为空。CLI默认行为及退出码保持：0通过、1检查失败、2参数错误。
 - 独立查看最近30个UTC自然日汇总；无样本不补成功率，当天标记进行中。汇总按当次规则判定，跨规则时期不能直接等价比较。
+- 在「故障过程」按目标和状态查看首次失败、确认、最后失败和恢复。恢复时长估算到首次成功，进行中只计到最后一次失败。暂停、编辑或重启会将未恢复的过程标记为监测中断。每目标保留最近1000条已结束记录且最长30天，进行中单独保留。旧提醒不会补造故障过程。
 
 ![业务断言失败及UTC日汇总（隔离测试数据）](docs/screenshots/v1.1/daily-desktop.png)
 
@@ -88,6 +89,8 @@ Linux使用不带.cmd后缀的npm/npx。CI在Windows和Ubuntu执行检查；Ubun
 | POST | `/api/targets/{id}/check` | 异步触发202，饱和409 |
 | GET | `/api/targets/{id}/checks?limit=50&before_id=123` | 历史分页 |
 | GET | `/api/targets/{id}/daily?days=30` | 最近1–30个UTC日期桶 |
+| GET | `/api/events?target_id=1&limit=50&before_id=123` | 提醒事件和桌面投递状态 |
+| GET | `/api/incidents?target_id=1&status=recovered&limit=50&before_id=123` | 故障过程，返回 `items` 与服务端 `observed_at` |
 
 创建/更新使用 `application/json`，正文最多16384字节，拒绝未知字段：
 

@@ -71,7 +71,7 @@ func BackupDatabase(ctx context.Context, source, dest string) (BackupManifest, e
 	}
 	manifest.FormatVersion = backupFormatVersion
 	manifest.CreatedAt = time.Now().UTC()
-	manifest.AppVersion = "1.5.0"
+	manifest.AppVersion = "1.6.0"
 	manifest.ContainsRawData = true
 	encoded, err := json.Marshal(manifest)
 	if err != nil {
@@ -297,7 +297,7 @@ func extractVerifiedBackup(ctx context.Context, archive, snapshot string) (Backu
 	if err = decoder.Decode(&struct{}{}); err != io.EOF {
 		return empty, errors.New("备份清单含额外内容")
 	}
-	if manifest.FormatVersion != backupFormatVersion || manifest.SchemaVersion < 1 || manifest.SchemaVersion > 5 {
+	if manifest.FormatVersion != backupFormatVersion || manifest.SchemaVersion < 1 || manifest.SchemaVersion > currentSchemaVersion {
 		return empty, errors.New("不支持备份格式或数据库版本")
 	}
 	_, offset := manifest.CreatedAt.Zone()
@@ -563,6 +563,9 @@ func inspectSnapshot(ctx context.Context, path string) (BackupManifest, error) {
 	}
 	if version >= 5 {
 		tables = append(tables, "alert_events", "alert_states")
+	}
+	if version >= 6 {
+		tables = append(tables, "incidents")
 	}
 	for _, table := range tables {
 		var count int64

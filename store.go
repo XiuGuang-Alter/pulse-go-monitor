@@ -94,7 +94,8 @@ func (s *Store) SaveTarget(ctx context.Context, id int64, in TargetInput) (Targe
 	}
 	rules, _ := parseRules(in.Rules)
 	in.Rules, _ = json.Marshal(rules)
-	now := time.Now().UnixMilli()
+	changedAt := time.Now()
+	now := changedAt.UnixMilli()
 	if id == 0 {
 		var count int
 		if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM targets").Scan(&count); err != nil {
@@ -119,6 +120,16 @@ func (s *Store) SaveTarget(ctx context.Context, id int64, in TargetInput) (Targe
 		n, _ := result.RowsAffected()
 		if n == 0 {
 			return Target{}, ErrNotFound
+		}
+		reason := "configuration_changed"
+		if !in.Enabled {
+			reason = "paused"
+		}
+		if err = interruptTargetIncident(ctx, tx, id, reason, changedAt); err != nil {
+			return Target{}, err
+		}
+		if _, err = tx.ExecContext(ctx, "DELETE FROM alert_states WHERE target_id=?", id); err != nil {
+			return Target{}, err
 		}
 	}
 	if err = tx.Commit(); err != nil {
@@ -260,7 +271,11 @@ func (s *Store) recordCheck(ctx context.Context, t Target, r Result, checkedAt t
 		if e != nil {
 			return false, e
 		}
-		event, err = recordAlertTx(ctx, tx, t, r, checkID, time.Now(), options[0])
+		completedAt := options[0].completedAt
+		if completedAt.IsZero() {
+			completedAt = time.Now()
+		}
+		event, err = recordAlertTx(ctx, tx, t, r, checkID, completedAt, options[0])
 		if err != nil {
 			return false, err
 		}

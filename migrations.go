@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const currentSchemaVersion = 6
+
 const schemaV1 = `CREATE TABLE IF NOT EXISTS targets (
  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, url TEXT NOT NULL,
  interval_seconds INTEGER NOT NULL, timeout_seconds INTEGER NOT NULL,
@@ -36,7 +38,7 @@ func migrateStore(ctx context.Context, db *sql.DB) error {
 	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version > 5 {
+	if version > currentSchemaVersion {
 		return fmt.Errorf("数据库版本%d比程序支持的版本新", version)
 	}
 	now := time.Now().UTC()
@@ -79,7 +81,12 @@ func migrateStore(ctx context.Context, db *sql.DB) error {
 			return err
 		}
 	}
-	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=5"); err != nil {
+	if version < 6 {
+		if _, err = tx.ExecContext(ctx, schemaV6); err != nil {
+			return err
+		}
+	}
+	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=6"); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS checks_target_id ON checks(target_id,id DESC); CREATE INDEX IF NOT EXISTS checks_stats ON checks(target_id,checked_at,kind,duration_ms)"); err != nil {

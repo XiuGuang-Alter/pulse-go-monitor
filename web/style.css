@@ -1044,3 +1044,7 @@ input[type="checkbox"] {
 .event-controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:16px 0; }
 .event-controls select { max-width:100%; min-width:140px; flex:1; }
 .event-name { max-width:260px; overflow-wrap:anywhere; }
+.incident-controls { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0; align-items:end; }
+.incident-controls label { display:grid; gap:5px; flex:1 1 155px; min-width:0; }
+.incident-controls select { width:100%; }
+.history-scroll .incident-table { min-width:740px; }

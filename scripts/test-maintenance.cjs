@@ -49,8 +49,8 @@ async function main(){
   if(rollback.items[0].id!==before.items[0].id)throw Error('Restore lost history identity');
   await stopChild(app.child);
   app=await launch(candidate,source);await stopChild(app.child);
-  if(schema(source)!==5)throw Error('Candidate did not migrate');
-  if(oldArg){let refused=false;try{app=await launch(old,source);}catch{refused=true;}if(!refused)throw Error('v1.1 accepted upgraded schema5');}
+  if(schema(source)!==6)throw Error('Candidate did not migrate to schema6');
+  if(oldArg){let refused=false;try{app=await launch(old,source);}catch{refused=true;}if(!refused)throw Error('v1.1 accepted upgraded schema6');}
   const redacted=location('redacted.json'),full=location('full.json'),imported=location('imported.db');
   command(['export-config','-db',source,'-out',redacted]);
   const safe=await fs.readFile(redacted,'utf8');if(safe.includes('fake-maintenance-secret') || !JSON.parse(safe).redacted)throw Error('Default config export not redacted');

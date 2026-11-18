@@ -24,6 +24,7 @@ type Scheduler struct {
 	running                 map[int64]bool
 	started, stopping       bool
 	wg                      sync.WaitGroup
+	stopOnce                sync.Once
 	pollInterval            time.Duration
 	wake                    chan struct{}
 	retryAt                 map[int64]time.Time
@@ -216,12 +217,13 @@ func (s *Scheduler) launch(target Target) error {
 				result = CheckWithRules(s.ctx, target.URL, time.Duration(target.TimeoutSeconds)*time.Second, rules)
 			}
 		}
+		completedAt := time.Now()
 		if s.ctx.Err() != nil {
 			return
 		}
 		ctx, cancel := context.WithTimeout(s.ctx, storeOperationTimeout)
 		defer cancel()
-		event, err := s.store.recordCheckWithEvents(ctx, target, result, checkedAt, s.instanceID, s.emitDesktopAlert != nil)
+		event, err := s.store.recordCheckWithEvents(ctx, target, result, checkedAt, completedAt, s.instanceID, s.emitDesktopAlert != nil)
 		if err != nil && !errors.Is(err, ErrNotFound) && s.ctx.Err() == nil {
 			log.Printf("保存目标 %d 结果失败（%T）", target.ID, err)
 			s.mu.Lock()
@@ -253,7 +255,20 @@ func (s *Scheduler) RunningIDs() map[int64]bool {
 	}
 	return out
 }
-func (s *Scheduler) Stop() { s.mu.Lock(); s.stopping = true; s.cancel(); s.mu.Unlock(); s.wg.Wait() }
+func (s *Scheduler) Stop() {
+	s.stopOnce.Do(func() {
+		s.mu.Lock()
+		s.stopping = true
+		s.cancel()
+		s.mu.Unlock()
+		s.wg.Wait()
+		ctx, cancel := context.WithTimeout(context.Background(), storeOperationTimeout)
+		defer cancel()
+		if err := s.store.stopIncidents(ctx, s.instanceID); err != nil {
+			log.Printf("保存监测停止状态失败（%T）", err)
+		}
+	})
+}
 
 type RunningSnapshot struct{ StartedAt, Deadline int64 }
 

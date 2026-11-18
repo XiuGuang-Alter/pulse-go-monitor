@@ -29,6 +29,63 @@ test.beforeEach(async({page})=>{
 test.afterEach(async()=>{await stop();if(upstream){await new Promise(resolve=>upstream.close(resolve));}if(directory)await fs.rm(directory,{recursive:true,force:true});});
 const row=(page,name)=>page.locator('#targets tr').filter({hasText:name});
 
+test('故障过程记录首次失败、恢复、分页与筛选', async ({page, request}) => {
+ await add(page, '过程验收目标', '/switch');
+ const target = (await list(request))[0];
+ const endpoint = base + `/api/targets/${target.id}`;
+ await expect.poll(async () => {
+  const current = (await list(request))[0];
+  return Boolean(current.latest) && !current.running;
+ }).toBe(true);
+ expect((await request.post(endpoint + '/check')).status()).toBe(202);
+ await page.locator('#incidents-open').click();
+ await expect(page.locator('#incident-rows')).toContainText('尚未观察到恢复');
+ switchingFailure = false;
+ await expect.poll(async () => !(await list(request))[0].running).toBe(true);
+ expect((await request.post(endpoint + '/check')).status()).toBe(202);
+ await expect(page.locator('#incident-rows')).toContainText('采样估算');
+ await page.locator('#incident-status').selectOption('active');
+ await expect(page.locator('#incident-empty')).toBeVisible();
+ await page.locator('#incident-status').selectOption('recovered');
+ await expect(page.locator('#incident-rows tr')).toHaveCount(1);
+ expect((await request.put(endpoint, {data:{name:target.name,url:upstreamURL+'/switch',interval_seconds:60,timeout_seconds:1,enabled:false}})).ok()).toBe(true);
+ await stop();
+ const {DatabaseSync} = require('node:sqlite');
+ const sql = new DatabaseSync(db);
+ try {
+  const insert = sql.prepare(`INSERT INTO incidents(target_id,target_name,config_version,session,status,
+   started_at,confirmed_at,last_failure_at,first_failure_check_id,last_failure_check_id,fault_event_id,
+   error_category,failure_count,closed_at,interrupt_reason) VALUES (?, ?, 1, 'fixture', 'interrupted',
+   ?, ?, ?, 1, 2, 1, 'timeout', 2, ?, 'paused')`);
+  const now = Date.now();
+  for (let index = 0; index < 51; index++) {
+   insert.run(target.id, index === 50 ? '<img data-example>' : '过程分页夹具', now - 3000, now - 2000, now - 2000, now);
+  }
+ } finally {
+  sql.close();
+ }
+ app = await launch();
+ base = app.url;
+ await page.goto(base);
+ await expect(row(page, '过程验收目标')).toBeVisible();
+ await page.locator('#incidents-open').click();
+ await page.locator('#incident-target').selectOption(String(target.id));
+ await page.locator('#incident-status').selectOption('interrupted');
+ await expect(page.locator('#incident-rows tr')).toHaveCount(50);
+ await expect(page.locator('#incident-rows tr').first()).toContainText('<img data-example>');
+ await expect(page.locator('#incident-rows img')).toHaveCount(0);
+ await page.locator('#incident-more').click();
+ await expect(page.locator('#incident-rows tr')).toHaveCount(51);
+ await expect(page.locator('#incident-more')).toBeDisabled();
+ await page.route('**/api/incidents?*', route => route.abort());
+ await page.locator('#incident-refresh').click();
+ await expect(page.locator('#incident-error')).toBeVisible();
+ await expect(page.locator('#incident-rows tr')).toHaveCount(51);
+ await page.setViewportSize({width:390,height:844});
+ await expect(page.locator('#incident-refresh')).toBeVisible();
+ expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test('提醒记录：通知关闭仍记录故障恢复，重启后分页和筛选',async({page,request})=>{
  await add(page,'提醒验收目标','/switch');
  const target=(await list(request))[0];

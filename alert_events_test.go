@@ -39,7 +39,7 @@ func TestAlertEventMigrationSchema4Rollback(t *testing.T) {
 	if err != nil || len(events) != 0 {
 		t.Fatal("migration fabricated events")
 	}
-	// A clean read-only maintenance connection must still accept schema5.
+	// A clean read-only maintenance connection must accept the migrated schema.
 	connection, _, err := openMaintenanceSource(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
@@ -164,7 +164,8 @@ func TestAlertEventSchedulerRecordsWithoutDesktopAtCompletion(t *testing.T) {
 
 func eventCheck(t *testing.T, s *Store, target Target, kind, session string, desktop bool) *AlertEvent {
 	t.Helper()
-	e, err := s.recordCheckWithEvents(context.Background(), target, Result{Kind: kind, StatusCode: 503, URL: target.URL, Detail: "secret response token", ErrorCategory: "untrusted private text"}, time.Now(), session, desktop)
+	now := time.Now()
+	e, err := s.recordCheckWithEvents(context.Background(), target, Result{Kind: kind, StatusCode: 503, URL: target.URL, Detail: "secret response token", ErrorCategory: "untrusted private text"}, now, now, session, desktop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +204,7 @@ func TestAlertEventThresholdAndDisabledNotifications(t *testing.T) {
 		t.Fatalf("unsafe event output %s", b)
 	}
 	var version int
-	if err = s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 5 {
+	if err = s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != currentSchemaVersion {
 		t.Fatalf("schema %d %v", version, err)
 	}
 }
@@ -216,7 +217,8 @@ func TestAlertEventAtomicRollback(t *testing.T) {
 	if _, err := s.db.Exec(`CREATE TRIGGER fail_event BEFORE INSERT ON alert_events BEGIN SELECT RAISE(ABORT,'test event failure'); END`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.recordCheckWithEvents(ctx, target, Result{Kind: "timeout"}, time.Now(), "run", true); err == nil {
+	now := time.Now()
+	if _, err := s.recordCheckWithEvents(ctx, target, Result{Kind: "timeout"}, now, now, "run", true); err == nil {
 		t.Fatal("expected transaction failure")
 	}
 	h, err := s.History(ctx, target.ID, 50, 0)

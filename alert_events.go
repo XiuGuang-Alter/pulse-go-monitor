@@ -35,13 +35,14 @@ type AlertEvent struct {
 }
 
 type alertCheckOptions struct {
-	session string
-	desktop bool
-	event   *AlertEvent
+	session     string
+	desktop     bool
+	completedAt time.Time
+	event       *AlertEvent
 }
 
-func (s *Store) recordCheckWithEvents(ctx context.Context, t Target, r Result, checkedAt time.Time, session string, desktop bool) (*AlertEvent, error) {
-	options := &alertCheckOptions{session: session, desktop: desktop}
+func (s *Store) recordCheckWithEvents(ctx context.Context, t Target, r Result, checkedAt, completedAt time.Time, session string, desktop bool) (*AlertEvent, error) {
+	options := &alertCheckOptions{session: session, desktop: desktop, completedAt: completedAt}
 	_, err := s.recordCheck(ctx, t, r, checkedAt, options)
 	return options.event, err
 }
@@ -50,28 +51,48 @@ func recordAlertTx(ctx context.Context, tx *sql.Tx, target Target, result Result
 	var version int64
 	var session string
 	var failures int
-	err := tx.QueryRowContext(ctx, "SELECT config_version,session,failures FROM alert_states WHERE target_id=?", target.ID).Scan(&version, &session, &failures)
+	var firstAt, firstCheck, incidentID sql.NullInt64
+	err := tx.QueryRowContext(ctx, `SELECT config_version,session,failures,first_failure_at,first_failure_check_id,incident_id
+ FROM alert_states WHERE target_id=?`, target.ID).Scan(&version, &session, &failures, &firstAt, &firstCheck, &incidentID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	if version != target.Version || session != options.session {
+		if incidentID.Valid {
+			reason := "configuration_changed"
+			if session != options.session {
+				reason = "restarted"
+			}
+			if err = interruptTargetIncident(ctx, tx, target.ID, reason, now); err != nil {
+				return nil, err
+			}
+		}
 		failures = 0
+		incidentID = sql.NullInt64{}
 	}
 	kind := ""
+	at := now.UnixMilli()
 	if result.Kind == "ok" {
 		if failures == 2 {
 			kind = "recovery"
 		}
 		_, err = tx.ExecContext(ctx, "DELETE FROM alert_states WHERE target_id=?", target.ID)
 	} else {
-		if failures < 2 {
-			failures++
-			if failures == 2 {
-				kind = "fault"
-			}
+		switch failures {
+		case 0:
+			firstAt = sql.NullInt64{Int64: at, Valid: true}
+			firstCheck = sql.NullInt64{Int64: checkID, Valid: true}
+			_, err = tx.ExecContext(ctx, `INSERT INTO alert_states
+ (target_id,config_version,session,failures,first_failure_at,first_failure_check_id,incident_id)
+ VALUES (?,?,?,1,?,?,NULL) ON CONFLICT(target_id) DO UPDATE SET
+ config_version=excluded.config_version,session=excluded.session,failures=1,
+ first_failure_at=excluded.first_failure_at,first_failure_check_id=excluded.first_failure_check_id,incident_id=NULL`,
+				target.ID, target.Version, options.session, firstAt, firstCheck)
+		case 1:
+			kind = "fault"
+		case 2:
+			return nil, recordIncidentFailure(ctx, tx, incidentID.Int64, checkID, at)
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO alert_states(target_id,config_version,session,failures) VALUES(?,?,?,?)
-  ON CONFLICT(target_id) DO UPDATE SET config_version=excluded.config_version,session=excluded.session,failures=excluded.failures`, target.ID, target.Version, options.session, failures)
 	}
 	if err != nil || kind == "" {
 		return nil, err
@@ -87,6 +108,17 @@ func recordAlertTx(ctx context.Context, tx *sql.Tx, target Target, result Result
 	if event.ID, err = inserted.LastInsertId(); err != nil {
 		return nil, err
 	}
+	if kind == "fault" {
+		id, e := createIncident(ctx, tx, options.session, firstAt.Int64, firstCheck.Int64, event)
+		if e != nil {
+			return nil, e
+		}
+		if _, err = tx.ExecContext(ctx, "UPDATE alert_states SET failures=2,incident_id=? WHERE target_id=?", id, target.ID); err != nil {
+			return nil, err
+		}
+	} else if err = recoverIncident(ctx, tx, incidentID.Int64, event, now); err != nil {
+		return nil, err
+	}
 	cutoff := now.Add(-30 * 24 * time.Hour).UnixMilli()
 	_, err = tx.ExecContext(ctx, `DELETE FROM alert_events WHERE target_id=? AND (occurred_at<? OR id NOT IN (SELECT id FROM alert_events WHERE target_id=? AND occurred_at>=? ORDER BY id DESC LIMIT 1000))`, target.ID, cutoff, target.ID, cutoff)
 	return event, err
@@ -95,8 +127,30 @@ func recordAlertTx(ctx context.Context, tx *sql.Tx, target Target, result Result
 const eventColumns = "id,target_id,target_name,config_version,check_id,kind,error_category,occurred_at,notification_status,notification_reason"
 
 func (s *Store) interruptAlertEvents(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE alert_events SET notification_status='interrupted',notification_reason='' WHERE notification_status IN ('queued','sending')`)
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `UPDATE alert_events SET notification_status='interrupted',notification_reason='' WHERE notification_status IN ('queued','sending')`); err != nil {
+		return err
+	}
+	if err = interruptRuntimeIncidents(ctx, tx, "", "restarted", time.Now()); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) stopIncidents(ctx context.Context, session string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err = interruptRuntimeIncidents(ctx, tx, session, "stopped", time.Now()); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // Claim and revalidate in one write statement. Never send an evicted event or
