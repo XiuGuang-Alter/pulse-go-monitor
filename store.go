@@ -40,6 +40,9 @@ func OpenStore(path string) (*Store, error) {
 	if _, err = db.Exec("DELETE FROM checks WHERE checked_at<?", time.Now().Add(-30*24*time.Hour).UnixMilli()); err != nil {
 		return fail(err)
 	}
+	if _, err = db.Exec("DELETE FROM alert_events WHERE occurred_at<?", time.Now().Add(-30*24*time.Hour).UnixMilli()); err != nil {
+		return fail(err)
+	}
 	return s, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
@@ -212,7 +215,7 @@ func (s *Store) RecordCheck(ctx context.Context, t Target, r Result, checkedAt t
 
 // The boolean reports whether a committed result belongs to the enabled
 // configuration. Historical checks can still be saved after an edit or pause.
-func (s *Store) recordCheck(ctx context.Context, t Target, r Result, checkedAt time.Time) (bool, error) {
+func (s *Store) recordCheck(ctx context.Context, t Target, r Result, checkedAt time.Time, options ...*alertCheckOptions) (bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return false, err
@@ -232,7 +235,7 @@ func (s *Store) recordCheck(ctx context.Context, t Target, r Result, checkedAt t
 	if len(rules) == 0 {
 		rules = json.RawMessage(`{}`)
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO checks(target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot,error_category) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, t.ID, t.URL, r.URL, r.StatusCode, float64(r.Duration)/float64(time.Millisecond), r.Kind, r.Detail, checkedAt.UnixMilli(), total, t.Version, string(rules), normalizedErrorCategory(r.Kind, r.StatusCode, r.ErrorCategory))
+	inserted, err := tx.ExecContext(ctx, `INSERT INTO checks(target_id,input_url,final_url,status_code,duration_ms,kind,detail,checked_at,total_duration_ms,config_version,rules_snapshot,error_category) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, t.ID, t.URL, r.URL, r.StatusCode, float64(r.Duration)/float64(time.Millisecond), r.Kind, r.Detail, checkedAt.UnixMilli(), total, t.Version, string(rules), normalizedErrorCategory(r.Kind, r.StatusCode, r.ErrorCategory))
 	if err != nil {
 		return false, err
 	}
@@ -251,8 +254,22 @@ func (s *Store) recordCheck(ctx context.Context, t Target, r Result, checkedAt t
 	if err = recordDaily(ctx, tx, t.ID, r, checkedAt, time.Now()); err != nil {
 		return false, err
 	}
+	var event *AlertEvent
+	if t.Enabled && rows == 1 && len(options) > 0 {
+		checkID, e := inserted.LastInsertId()
+		if e != nil {
+			return false, e
+		}
+		event, err = recordAlertTx(ctx, tx, t, r, checkID, time.Now(), options[0])
+		if err != nil {
+			return false, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return false, err
+	}
+	if len(options) > 0 {
+		options[0].event = event
 	}
 	return t.Enabled && rows == 1, nil
 }

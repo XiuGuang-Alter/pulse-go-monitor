@@ -23,6 +23,7 @@
         ><button class="nav-item" data-filter="paused">
           <span>Ⅱ</span> 已暂停
         </button>
+        <button id="events-open" class="nav-item"><span>◷</span> 提醒记录</button>
       </nav>
       <div class="side-bottom">
         <button id="help-open" class="nav-item"><span>?</span> 使用说明</button>
@@ -270,6 +271,26 @@
           完成
         </button>
       </div>
+    </dialog>
+    <dialog id="events-dialog" class="history-dialog" aria-labelledby="events-title">
+      <div class="dialog-heading">
+        <div><p class="eyebrow">ALERT HISTORY</p><h2 id="events-title">提醒记录</h2></div>
+        <button class="icon-button" data-close="events-dialog" aria-label="关闭提醒记录">×</button>
+      </div>
+      <p class="muted small">当前配置连续失败两次记录故障，之后首次成功记录恢复；未启用桌面通知时仍会记录。修改配置或重启后重新累计。</p>
+      <p class="muted small">每个目标保留最近 1000 条且最多 30 天，删除目标会同时删除记录。系统报告显示不代表你已经阅读。仅记录新版开始运行后的事件。</p>
+      <div class="event-controls">
+        <label for="event-target">监测目标</label><select id="event-target"><option value="0">全部目标</option></select>
+        <button id="event-refresh" class="button subtle">↻ 更新最新记录</button>
+      </div>
+      <p id="event-error" class="notice error" role="alert" hidden></p>
+      <div class="history-scroll"><table>
+        <thead><tr><th>事件时间</th><th>目标名称</th><th>事件</th><th>配置版本</th><th>桌面通知状态</th></tr></thead>
+        <tbody id="event-rows"></tbody>
+      </table></div>
+      <p id="event-empty" class="muted" hidden>当前范围暂无故障或恢复记录。</p>
+      <p id="event-note" class="muted small" aria-live="polite"></p>
+      <div class="dialog-actions"><button id="event-more" class="button">加载更早记录</button><button class="button primary" data-close="events-dialog">完成</button></div>
     </dialog>
     <dialog id="delete-dialog">
       <div class="dialog-heading">

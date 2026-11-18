@@ -105,33 +105,6 @@ func TestDesktopAlertDeliveryKeepsMonitorIndependent(t *testing.T) {
 	}
 }
 
-func TestDesktopAlertTransitions(t *testing.T) {
-	var tracker desktopAlertTracker
-	target := Target{ID: 7, Name: "sample", Version: 3, Enabled: true}
-	other := Target{ID: 8, Name: "other", Version: 1, Enabled: true}
-	want := []desktopAlert{{targetID: 7, version: 3, name: "sample"}, {targetID: 7, version: 3, name: "sample", recovered: true}}
-	var got []desktopAlert
-	for _, step := range []struct {
-		target Target
-		ok     bool
-	}{{target, true}, {target, false}, {target, true}, {target, false}, {other, false}, {target, false}, {target, false}, {target, true}, {target, true}} {
-		if alert, emit := tracker.observe(step.target, step.ok); emit {
-			got = append(got, alert)
-		}
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("desktop alerts = %+v, want %+v", got, want)
-	}
-	target.Version++
-	if _, emit := tracker.observe(target, false); emit {
-		t.Fatal("a new configuration should start with zero failures")
-	}
-	var restarted desktopAlertTracker
-	if _, emit := restarted.observe(other, false); emit {
-		t.Fatal("a new process should start with zero failures")
-	}
-}
-
 func TestDesktopAlertsUseCommittedCurrentConfiguration(t *testing.T) {
 	ctx := context.Background()
 	store, err := OpenStore(filepath.Join(t.TempDir(), "monitor.db"))
@@ -196,7 +169,7 @@ func TestDesktopAlertsUseCommittedCurrentConfiguration(t *testing.T) {
 	kind = "ok"
 	check(current)
 	check(current)
-	want := []desktopAlert{{targetID: current.ID, version: current.Version, name: input.Name}, {targetID: current.ID, version: current.Version, name: input.Name, recovered: true}}
+	want := []desktopAlert{{eventID: 1, targetID: current.ID, version: current.Version, name: input.Name}, {eventID: 2, targetID: current.ID, version: current.Version, name: input.Name, recovered: true}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("desktop alerts = %+v, want %+v", got, want)
 	}

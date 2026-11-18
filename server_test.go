@@ -5,9 +5,57 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestAlertEventsAPI(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	target, _ := s.SaveTarget(ctx, 0, inputFor("http://example.invalid/?secret=token"))
+	scheduler, err := NewScheduler(s, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer scheduler.Stop()
+	eventCheck(t, s, target, "timeout", "run", false)
+	eventCheck(t, s, target, "timeout", "run", false)
+	eventCheck(t, s, target, "ok", "run", false)
+	h := NewApp(s, scheduler).Handler()
+	request := func(query string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1:8080/api/events"+query, nil))
+		return w
+	}
+	w := request("?limit=1")
+	if w.Code != 200 {
+		t.Fatalf("events %d %s", w.Code, w.Body.String())
+	}
+	var page []AlertEvent
+	if err = json.Unmarshal(w.Body.Bytes(), &page); err != nil || len(page) != 1 || page[0].Kind != "recovery" {
+		t.Fatalf("page %s %v", w.Body.String(), err)
+	}
+	if strings.Contains(w.Body.String(), "secret") || strings.Contains(w.Body.String(), "example.invalid") {
+		t.Fatal("unsafe API")
+	}
+	w = request("?limit=1&before_id=2&target_id=1")
+	if w.Code != 200 {
+		t.Fatal(w.Code)
+	}
+	json.Unmarshal(w.Body.Bytes(), &page)
+	if len(page) != 1 || page[0].Kind != "fault" {
+		t.Fatal(w.Body.String())
+	}
+	for _, query := range []string{"?limit=0", "?limit=201", "?limit=x", "?before_id=-1", "?target_id=x", "?target_id=-1", "?before_id=9223372036854775808", "?limit="} {
+		if w = request(query); w.Code != 400 {
+			t.Errorf("%s accepted %d", query, w.Code)
+		}
+	}
+	if w = request("?target_id=999"); w.Code != 404 {
+		t.Fatal("missing target", w.Code)
+	}
+}
 
 func TestAPILifecycle(t *testing.T) {
 	store := testStore(t)

@@ -6,6 +6,7 @@ const os=require('node:os');
 const path=require('node:path');
 const {once}=require('node:events');
 let upstream,upstreamURL,app,base,directory,db;
+let switchingFailure;
 async function launch(address='127.0.0.1:0'){
  const exe=path.resolve('.cache',process.platform==='win32'?'pulse-e2e.exe':'pulse-e2e');
  return launchServer(exe,['serve','-addr',address,'-db',db]);
@@ -13,9 +14,11 @@ async function launch(address='127.0.0.1:0'){
 async function stop(){await stopChild(app?.child);}
 test.beforeEach(async({page})=>{
  directory=await fs.mkdtemp(path.join(os.tmpdir(),'pulse-e2e-'));db=path.join(directory,'monitor.db');
+ switchingFailure=true;
  upstream=http.createServer((req,res)=>{
   if(req.url==='/slow'){const timer=setTimeout(()=>res.end('slow'),2000);res.on('close',()=>clearTimeout(timer));}
   else if(req.url==='/error')res.writeHead(500).end('error');
+  else if(req.url==='/switch')res.writeHead(switchingFailure?503:200).end('synthetic');
   else if(req.url==='/json')res.end('{"code":1}');
   else if(req.url==='/redirect')res.writeHead(302,{Location:'/ok'}).end();
   else res.end('ok');
@@ -25,6 +28,34 @@ test.beforeEach(async({page})=>{
 });
 test.afterEach(async()=>{await stop();if(upstream){await new Promise(resolve=>upstream.close(resolve));}if(directory)await fs.rm(directory,{recursive:true,force:true});});
 const row=(page,name)=>page.locator('#targets tr').filter({hasText:name});
+
+test('提醒记录：通知关闭仍记录故障恢复，重启后分页和筛选',async({page,request})=>{
+ await add(page,'提醒验收目标','/switch');
+ const target=(await list(request))[0];
+ await expect.poll(async()=> (await list(request))[0].stats.samples).toBeGreaterThan(0);
+ await request.post(base+`/api/targets/${target.id}/check`);
+ const events=async()=> (await request.get(base+'/api/events')).json();
+ await expect.poll(async()=> (await events()).length).toBe(1);
+ await page.locator('#events-open').click();await expect(page.locator('#event-rows tr')).toHaveCount(1);
+ await expect(page.locator('#event-rows')).toContainText('故障');await expect(page.locator('#event-rows')).toContainText('未启用桌面提醒');
+ switchingFailure=false;await request.post(base+`/api/targets/${target.id}/check`);
+ await expect(page.locator('#event-rows tr')).toHaveCount(2);
+ await expect(page.locator('#event-rows tr').first()).toContainText('恢复');
+ await request.put(base+`/api/targets/${target.id}`,{data:{name:target.name,url:upstreamURL+'/switch',interval_seconds:60,timeout_seconds:1,enabled:false}});
+ await stop();
+ const {DatabaseSync}=require('node:sqlite');const sql=new DatabaseSync(db);
+ try {
+  const insert=sql.prepare("INSERT INTO alert_events(target_id,target_name,config_version,check_id,kind,error_category,occurred_at,notification_status) VALUES(?, ?, 1, 1, 'fault','timeout',?,'disabled')");
+  for(let i=0;i<51;i++)insert.run(target.id,i===50?'<img src=x onerror=alert(1)>':'分页提醒',Date.now());
+ } finally {sql.close();}
+ app=await launch();base=app.url;await page.goto(base);await page.locator('#events-open').click();
+ await expect(page.locator('#event-rows tr')).toHaveCount(50);await expect(page.locator('#event-rows tr').first()).toContainText('<img src=x onerror=alert(1)>');
+ await expect(page.locator('#event-rows img')).toHaveCount(0);
+ await page.locator('#event-more').click();await expect(page.locator('#event-rows tr')).toHaveCount(53);await expect(page.locator('#event-more')).toBeDisabled();
+ await page.locator('#event-target').selectOption(String(target.id));await expect(page.locator('#event-rows tr')).toHaveCount(50);
+ await page.setViewportSize({width:390,height:844});await expect(page.locator('#event-refresh')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+});
 async function list(request){const response=await request.get(base+'/api/targets');expect(response.ok()).toBeTruthy();return response.json();}
 async function refresh(page){await page.locator('#refresh').click();await expect(page.locator('#refresh')).toBeEnabled();}
 async function add(page,name,route,enabled=true){

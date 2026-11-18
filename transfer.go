@@ -59,7 +59,7 @@ func ExportConfiguration(ctx context.Context, source, dest string, full bool) er
 	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version < 1 || version > 4 {
+	if version < 1 || version > 5 {
 		return fmt.Errorf("不支持数据库版本（支持1–4）")
 	}
 	rulesColumn := "'{}'"
@@ -424,7 +424,7 @@ func ExportHistory(ctx context.Context, source, dest string, targetID int64, fro
 	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version < 1 || version > 4 {
+	if version < 1 || version > 5 {
 		return fmt.Errorf("不支持数据库版本（支持1–4）")
 	}
 	var exists int

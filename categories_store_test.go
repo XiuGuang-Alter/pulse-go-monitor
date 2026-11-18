@@ -96,8 +96,8 @@ func TestStoreErrorCategoriesRetainedFailuresOnly(t *testing.T) {
 	}
 }
 
-func TestMigrationSchema4AllPathsAndRollback(t *testing.T) {
-	for _, version := range []int{1, 2, 3} {
+func TestMigrationSchema5AllPathsAndRollback(t *testing.T) {
+	for _, version := range []int{1, 2, 3, 4} {
 		t.Run(string(rune('0'+version)), func(t *testing.T) {
 			file := legacyDatabase(t)
 			db, err := sql.Open("sqlite", file)
@@ -120,6 +120,11 @@ func TestMigrationSchema4AllPathsAndRollback(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if version == 4 {
+				if _, err = db.Exec("ALTER TABLE checks ADD COLUMN error_category TEXT; PRAGMA user_version=4;"); err != nil {
+					t.Fatal(err)
+				}
+			}
 			db.Close()
 			for range 2 {
 				s, err := OpenStore(file)
@@ -131,8 +136,8 @@ func TestMigrationSchema4AllPathsAndRollback(t *testing.T) {
 				if err = s.db.QueryRow("PRAGMA user_version").Scan(&actual); err != nil {
 					t.Fatal(err)
 				}
-				if actual != 4 {
-					t.Fatalf("version=%d want4", actual)
+				if actual != 5 {
+					t.Fatalf("version=%d want5", actual)
 				}
 				history, err := s.History(context.Background(), 7, 10, 0)
 				if err != nil || len(history) != 1 || history[0].ID != 11 || categoryOf(t, history[0]) != "" {
@@ -141,7 +146,7 @@ func TestMigrationSchema4AllPathsAndRollback(t *testing.T) {
 				if version < 3 && history[0].TotalDurationMS != nil {
 					t.Fatal("legacy total duration fabricated")
 				}
-				if version == 3 && (history[0].TotalDurationMS == nil || *history[0].TotalDurationMS != 123.5 || history[0].ConfigVersion == nil || *history[0].ConfigVersion != 4 || string(history[0].RulesSnapshot) != `{"body_contains":"fixture"}`) {
+				if version >= 3 && (history[0].TotalDurationMS == nil || *history[0].TotalDurationMS != 123.5 || history[0].ConfigVersion == nil || *history[0].ConfigVersion != 4 || string(history[0].RulesSnapshot) != `{"body_contains":"fixture"}`) {
 					t.Fatalf("snapshot changed: %+v", history[0])
 				}
 				if version >= 2 {
@@ -162,7 +167,7 @@ func TestMigrationSchema4AllPathsAndRollback(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = db.Exec("ALTER TABLE checks DROP COLUMN error_category; PRAGMA user_version=3; DROP INDEX checks_stats; CREATE TABLE checks_stats(fixture INTEGER);"); err != nil {
+			if _, err = db.Exec("DROP TABLE alert_states; DROP TABLE alert_events; ALTER TABLE checks DROP COLUMN error_category; PRAGMA user_version=3; DROP INDEX checks_stats; CREATE TABLE checks_stats(fixture INTEGER);"); err != nil {
 				t.Fatal(err)
 			}
 			db.Close()

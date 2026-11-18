@@ -16,6 +16,44 @@ import (
 	"time"
 )
 
+func TestAlertEventsBackupRestore(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	source := filepath.Join(dir, "source.db")
+	s, err := OpenStore(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	target, _ := s.SaveTarget(ctx, 0, inputFor("http://example.invalid/"))
+	eventCheck(t, s, target, "timeout", "run", false)
+	eventCheck(t, s, target, "timeout", "run", false)
+	archive := filepath.Join(dir, "events.zip")
+	m, err := BackupDatabase(ctx, source, archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.SchemaVersion != 5 || m.Counts["alert_events"] != 1 || m.Counts["alert_states"] != 1 {
+		t.Fatalf("manifest %+v", m)
+	}
+	if _, err = VerifyBackup(ctx, archive); err != nil {
+		t.Fatal(err)
+	}
+	restored := filepath.Join(dir, "restored.db")
+	if _, err = RestoreBackup(ctx, archive, restored); err != nil {
+		t.Fatal(err)
+	}
+	copy, err := OpenStore(restored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer copy.Close()
+	got, err := copy.AlertEvents(ctx, 0, 50, 0)
+	if err != nil || len(got) != 1 || got[0].NotificationStatus != "disabled" || got[0].CheckID != 2 {
+		t.Fatalf("restored events %+v %v", got, err)
+	}
+}
+
 // This fixture deliberately bypasses OpenStore, so old and expired data cannot
 // disappear before the behavior under test gets to read it.
 func backupFixture(t *testing.T, version int, wal bool) (string, *sql.DB) {
@@ -183,7 +221,7 @@ func TestBackupCancellationLocksCorruptionAndDestinations(t *testing.T) {
 	if _, err := BackupDatabase(context.Background(), corrupt, filepath.Join(dir, "corrupt.zip")); err == nil {
 		t.Fatal("corruption accepted")
 	}
-	db.Exec("PRAGMA user_version=5")
+	db.Exec("PRAGMA user_version=6")
 	if _, err := BackupDatabase(context.Background(), source, filepath.Join(dir, "future.zip")); err == nil {
 		t.Fatal("future accepted")
 	}

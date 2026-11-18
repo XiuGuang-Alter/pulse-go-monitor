@@ -17,6 +17,13 @@ const state = {
   mutating: false,
   historyBusy: false,
   ruleRows: [],
+  eventOpen: false,
+  eventTarget: 0,
+  eventRows: [],
+  eventToken: 0,
+  eventBusy: false,
+  eventMore: false,
+  eventPaged: false,
 };
 const categories = {dns:"DNS解析",connection:"连接",tls:"TLS",timeout:"超时",http_4xx:"HTTP 4xx",http_5xx:"HTTP 5xx",http_other:"其他HTTP",body_read:"正文读取",body_too_large:"正文超限",assertion:"业务断言",input:"输入",unknown:"未知/旧分类"};
 const kinds = {
@@ -599,6 +606,16 @@ $("history-dialog").addEventListener("close", () => {
 });
 $("history-refresh").addEventListener("click", () => loadHistory(false));
 $("history-more").addEventListener("click", () => loadHistory(true));
+$("events-open").addEventListener("click", openEvents);
+$("events-dialog").addEventListener("close", () => {
+  state.eventOpen=false;state.eventToken++;state.eventBusy=false;
+});
+$("event-target").addEventListener("change", () => {
+  state.eventTarget=Number($("event-target").value);state.eventToken++;state.eventBusy=false;
+  state.eventRows=[];renderEvents();loadEvents(false);
+});
+$("event-refresh").addEventListener("click", () => loadEvents(false));
+$("event-more").addEventListener("click", () => loadEvents(true));
 $("add-target").addEventListener("click", () => openForm());
 $("empty-add").addEventListener("click", () => openForm());
 $("refresh").addEventListener("click", refresh);
@@ -625,7 +642,10 @@ document
   );
 refresh();
 setInterval(() => {
-  if (!document.hidden) refresh();
+  if (!document.hidden) {
+    refresh();
+    if (state.eventOpen && !state.eventPaged) loadEvents(false);
+  }
 }, 5000);
 
 // Re-evaluate age while a refresh is slow; use elapsed time, not browser wall time.
@@ -638,4 +658,52 @@ function renderRetention(info) {
   : (info.theoretical_seconds/60).toLocaleString("zh-CN",{maximumFractionDigits:1})+"分钟";
  const actual=info.records ? `${info.records}条，${date(info.earliest_checked_at)} 至 ${date(info.latest_checked_at)}（本机时间）` : "0条，尚无明细";
  $("retention-note").textContent=`明细最多${info.max_records}条且最多${info.max_age_days}天，先达到的限制生效。按当前间隔理论约${duration}，不含请求耗时、停机和排队。当前保留${actual}。UTC日汇总不能还原已淘汰明细。`;
+}
+
+const notificationStates={disabled:'未启用桌面提醒',queued:'待处理',sending:'处理中',shown:'系统报告显示',submitted_unconfirmed:'已提交，未收到显示反馈',failed:'提交失败',queue_full:'队列已满',skipped:'已跳过',interrupted:'处理被中断'};
+const notificationReasons={configuration_changed:'目标暂停、配置改变或事件已过期',configuration_unavailable:'无法确认当前配置',notifier_unavailable:'Windows 通知区域不可用'};
+
+async function openEvents() {
+  state.eventOpen=true;state.eventTarget=0;state.eventRows=[];state.eventToken++;state.eventBusy=false;state.eventPaged=false;
+  const select=$("event-target");select.replaceChildren();
+  const all=el('option','','全部目标');all.value='0';select.append(all);
+  for(const target of state.targets){const option=el('option','',target.name);option.value=String(target.id);select.append(option);}
+  select.value='0';renderEvents();$("events-dialog").showModal();
+  await loadEvents(false);
+}
+
+async function loadEvents(append=false) {
+  if(!state.eventOpen || state.eventBusy)return;
+  state.eventBusy=true;const token=++state.eventToken;
+  $("event-more").disabled=true;$("event-refresh").disabled=true;
+  notice('event-error');
+  try {
+    const before=append && state.eventRows.length?state.eventRows.at(-1).id:0;
+    let query=`/api/events?limit=50&target_id=${state.eventTarget}`;
+    if(before)query+=`&before_id=${before}`;
+    const rows=await api(query);
+    if(token!==state.eventToken || !state.eventOpen)return;
+    state.eventRows=append?[...state.eventRows,...rows]:rows;
+    state.eventMore=rows.length===50;state.eventPaged=append;
+    renderEvents();
+  } catch(error){if(token===state.eventToken && state.eventOpen)notice('event-error',error.message);}
+  finally {
+    if(token===state.eventToken){state.eventBusy=false;$("event-refresh").disabled=false;$("event-more").disabled=!state.eventMore;}
+  }
+}
+
+function renderEvents() {
+  $("event-rows").replaceChildren();
+  for(const event of state.eventRows){
+    const row=el('tr');const kind=el('td');
+    kind.append(badge(event.kind==='recovery'?'恢复':'故障',event.kind==='recovery'?'ok':'error'));
+    if(event.kind==='fault' && categories[event.error_category])kind.append(el('small','',categories[event.error_category]));
+    const status=el('td','',notificationStates[event.notification_status]||'未知状态');
+    if(notificationReasons[event.notification_reason])status.append(el('small','',notificationReasons[event.notification_reason]));
+    row.append(el('td','',date(event.occurred_at)),el('td','event-name',event.target_name),kind,el('td','number',String(event.config_version)),status);
+    $("event-rows").append(row);
+  }
+  $("event-empty").hidden=state.eventRows.length!==0;
+  $("event-note").textContent=`已加载 ${state.eventRows.length} 条。`+(state.eventPaged?'正在查看更早记录；点击“更新最新记录”返回首页。':'首页每 5 秒自动更新。');
+  $("event-more").disabled=!state.eventMore;
 }

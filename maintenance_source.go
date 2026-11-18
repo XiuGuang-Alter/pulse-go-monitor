@@ -49,9 +49,9 @@ func openMaintenanceSource(ctx context.Context, path string) (*sql.DB, int, erro
 		db.Close()
 		return nil, 0, fmt.Errorf("读取维护源失败: %w", err)
 	}
-	if version < 1 || version > 4 {
+	if version < 1 || version > 5 {
 		db.Close()
-		return nil, 0, fmt.Errorf("不支持数据库版本 %d（支持 1–4）", version)
+		return nil, 0, fmt.Errorf("不支持数据库版本 %d（支持 1–5）", version)
 	}
 	return db, version, nil
 }

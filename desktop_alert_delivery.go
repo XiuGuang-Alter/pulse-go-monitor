@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"runtime"
 	"sync/atomic"
@@ -25,12 +24,13 @@ type desktopAlertDelivery struct {
 	done    chan struct{}
 	dropped atomic.Uint64
 	logger  *log.Logger
+	store   *Store
 }
 
 func startDesktopAlertDelivery(parent context.Context, store *Store, notifier desktopNotifier, logger *log.Logger) *desktopAlertDelivery {
 	ctx, cancel := context.WithCancel(parent)
 	delivery := &desktopAlertDelivery{
-		ctx: ctx, cancel: cancel, queue: make(chan desktopAlert, desktopAlertQueueCapacity), done: make(chan struct{}), logger: logger,
+		ctx: ctx, cancel: cancel, queue: make(chan desktopAlert, desktopAlertQueueCapacity), done: make(chan struct{}), logger: logger, store: store,
 	}
 	go delivery.run(store, notifier)
 	return delivery
@@ -44,6 +44,7 @@ func (d *desktopAlertDelivery) enqueue(event desktopAlert) {
 	case d.queue <- event:
 	default:
 		d.dropped.Add(1)
+		d.finish(event, "queue_full", "")
 	}
 }
 
@@ -72,22 +73,24 @@ func (d *desktopAlertDelivery) run(store *Store, notifier desktopNotifier) {
 
 func (d *desktopAlertDelivery) deliver(store *Store, notifier desktopNotifier, event desktopAlert) {
 	ctx, cancel := context.WithTimeout(d.ctx, storeOperationTimeout)
-	target, err := store.GetTarget(ctx, event.targetID)
+	claimed, err := store.claimAlertEvent(ctx, event)
 	cancel()
-	if d.ctx.Err() != nil || errors.Is(err, ErrNotFound) {
+	if d.ctx.Err() != nil {
 		return
 	}
 	if err != nil {
 		d.logger.Printf("目标 %d 桌面提醒提交失败（无法确认当前配置）", event.targetID)
+		d.finish(event, "failed", "configuration_unavailable")
 		return
 	}
-	if !target.Enabled || target.Version != event.version {
+	if !claimed {
 		return
 	}
 	shown, err := notifier.send(d.ctx, event)
 	if err != nil {
 		if d.ctx.Err() == nil {
 			d.logger.Printf("目标 %d 桌面提醒提交失败（Windows 通知区域不可用）", event.targetID)
+			d.finish(event, "failed", "notifier_unavailable")
 		}
 		return
 	}
@@ -96,10 +99,24 @@ func (d *desktopAlertDelivery) deliver(store *Store, notifier desktopNotifier, e
 		state = "恢复"
 	}
 	status := "未收到 Windows 显示回调"
+	deliveryStatus := "submitted_unconfirmed"
 	if shown {
 		status = "Windows 已报告显示"
+		deliveryStatus = "shown"
 	}
+	d.finish(event, deliveryStatus, "")
 	d.logger.Printf("目标 %d 桌面提醒已提交（%s），%s", event.targetID, state, status)
+}
+
+func (d *desktopAlertDelivery) finish(event desktopAlert, status, reason string) {
+	if event.eventID == 0 || d.ctx.Err() != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(d.ctx, storeOperationTimeout)
+	defer cancel()
+	if err := d.store.finishAlertEvent(ctx, event.eventID, status, reason); err != nil && d.ctx.Err() == nil {
+		d.logger.Printf("提醒 %d 状态保存失败，重启后将标记中断", event.eventID)
+	}
 }
 
 func (d *desktopAlertDelivery) stop() {

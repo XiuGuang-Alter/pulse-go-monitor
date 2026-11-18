@@ -80,6 +80,7 @@ func targetID(r *http.Request) (int64, error) {
 
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/events",a.alertEvents)
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), storeOperationTimeout)
 		defer cancel()

@@ -1,4 +1,4 @@
-// Real v1.1 (schema3) -> v1.2 (schema4) -> rejection -> untouched backup recovery.
+// Real v1.1 (schema3) -> current schema5 -> rejection -> untouched backup recovery.
 // Arguments are user-provided binaries; all data is synthetic and temporary.
 const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),http=require('node:http');
 const {once}=require('node:events');
@@ -28,13 +28,13 @@ async function main(){
   app=await launch(newBinary,live);
   const targets=await api('/api/targets'),history=await api('/api/targets/'+target.id+'/checks'),daily=await api('/api/targets/'+target.id+'/daily?days=1');
   if(targets[0].id!==target.id||history.items[0].id!==original.items[0].id||history.items[0].total_duration_ms!==original.items[0].total_duration_ms||history.items[0].config_version!==original.items[0].config_version||JSON.stringify(history.items[0].rules_snapshot)!==JSON.stringify(original.items[0].rules_snapshot)||history.items[0].error_category!==''||daily.buckets[0].samples!==1||daily.buckets[0].migration_partial)throw Error('Migration did not preserve legacy semantics');
-  await stopChild(app.child);if(schema(live)!==4)throw Error("Candidate must migrate to schema4");
+  await stopChild(app.child);if(schema(live)!==5)throw Error("Candidate must migrate to schema5");
   let refused=false;try{app=await launch(oldBinary,live);}catch(error){refused=/版本|version/i.test(String(error));}
   if(!refused)throw Error('Old program did not reject upgraded schema');
   if(await hash(backup)!==backupHash)throw Error('Backup changed');
   await fs.cp(backup,restored,{recursive:true});app=await launch(oldBinary,restored);
   const rollback=await api('/api/targets/'+target.id+'/checks');if(rollback.items[0].id!==original.items[0].id)throw Error('Restored history differs');
-  console.log(JSON.stringify({passed:true,upgrade:'actual v1.1 binary database schema3 -> schema4',target_id_preserved:true,history_id_preserved:true,old_binary_refused_upgraded:true,restored_backup_opened_by_v11:true,backup_sha256:backupHash}));
+  console.log(JSON.stringify({passed:true,upgrade:'actual v1.1 binary database schema3 -> current schema5',target_id_preserved:true,history_id_preserved:true,old_binary_refused_upgraded:true,restored_backup_opened_by_v11:true,backup_sha256:backupHash}));
  }finally{await stopChild(app?.child);if(upstream)await new Promise(resolve=>upstream.close(resolve));await fs.rm(dir,{recursive:true,force:true});}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

@@ -36,13 +36,18 @@ type Scheduler struct {
 	readFailures            int
 	writeFailures           map[int64]int
 	enabledIDs              map[int64]bool
-	desktopAlerts           desktopAlertTracker
 	emitDesktopAlert        func(desktopAlert) // set before Start or Trigger
 }
 
 func NewScheduler(store *Store, concurrency int, checker Checker) (*Scheduler, error) {
 	if concurrency < 1 || concurrency > 32 {
 		return nil, fmt.Errorf("并发数范围为1–32")
+	}
+	initCtx, initCancel := context.WithTimeout(context.Background(), storeOperationTimeout)
+	err := store.interruptAlertEvents(initCtx)
+	initCancel()
+	if err != nil {
+		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Scheduler{runningSince: map[int64]int64{}, runningDeadlines: map[int64]int64{}, createdAt: time.Now(), instanceID: fmt.Sprintf("%x", rand.Text()), writeFailures: map[int64]int{}, enabledIDs: map[int64]bool{}, store: store, checker: checker, ctx: ctx, cancel: cancel, slots: make(chan struct{}, concurrency), running: map[int64]bool{}, pollInterval: 250 * time.Millisecond, wake: make(chan struct{}, 1), retryAt: map[int64]time.Time{}, ready: make(chan struct{})}, nil
@@ -100,7 +105,6 @@ func (s *Scheduler) scheduleDue() {
 	}
 	ctx, cancel := context.WithTimeout(s.ctx, storeOperationTimeout)
 	defer cancel()
-	scanStarted := time.Now()
 	targets, err := s.store.targets(ctx, "ORDER BY next_check_at,id")
 	if err != nil {
 		if s.ctx.Err() == nil {
@@ -126,7 +130,6 @@ func (s *Scheduler) scheduleDue() {
 			delete(s.writeFailures, id)
 		}
 	}
-	s.desktopAlerts.prune(live, scanStarted)
 	s.mu.Unlock()
 	for _, target := range targets {
 		if !target.Enabled || target.NextCheckAt > time.Now().UnixMilli() {
@@ -218,7 +221,7 @@ func (s *Scheduler) launch(target Target) error {
 		}
 		ctx, cancel := context.WithTimeout(s.ctx, storeOperationTimeout)
 		defer cancel()
-		eligible, err := s.store.recordCheck(ctx, target, result, checkedAt)
+		event, err := s.store.recordCheckWithEvents(ctx, target, result, checkedAt, s.instanceID, s.emitDesktopAlert != nil)
 		if err != nil && !errors.Is(err, ErrNotFound) && s.ctx.Err() == nil {
 			log.Printf("保存目标 %d 结果失败（%T）", target.ID, err)
 			s.mu.Lock()
@@ -226,21 +229,16 @@ func (s *Scheduler) launch(target Target) error {
 			s.writeFailures[target.ID]++
 			s.mu.Unlock()
 		} else {
-			var event desktopAlert
-			var emit bool
 			s.mu.Lock()
 			delete(s.retryAt, target.ID)
 			delete(s.writeFailures, target.ID)
 			if err == nil {
 				s.successfulWrites++
 				s.lastWriteAt = time.Now().UnixMilli()
-				if eligible && s.emitDesktopAlert != nil && !s.stopping {
-					event, emit = s.desktopAlerts.observe(target, result.Kind == "ok")
-				}
 			}
 			s.mu.Unlock()
-			if emit {
-				s.emitDesktopAlert(event)
+			if event != nil && s.emitDesktopAlert != nil {
+				s.emitDesktopAlert(desktopAlert{eventID: event.ID, targetID: event.TargetID, version: event.ConfigVersion, name: event.TargetName, recovered: event.Kind == "recovery"})
 			}
 		}
 	}()
