@@ -1,6 +1,6 @@
 #Requires -Version 7.0
 param(
-    [string]$ZipPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'dist/pulse-v1.7.0-windows-amd64.zip'),
+    [string]$ZipPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'dist/pulse-v1.8.0-windows-amd64.zip'),
     [ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedCommit
 )
 $ErrorActionPreference='Stop'
