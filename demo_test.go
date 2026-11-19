@@ -19,7 +19,7 @@ func TestDemoLifecycle(t *testing.T) {
 	}
 	defer cleanup()
 	targets, err := store.ListTargets(context.Background())
-	if err != nil || len(targets) != 3 {
+	if err != nil || len(targets) != 4 {
 		t.Fatalf("targets=%+v err=%v", targets, err)
 	}
 	for _, target := range targets {
@@ -50,9 +50,49 @@ func TestDemoLifecycle(t *testing.T) {
 	}
 	defer again()
 	targets, err = store.ListTargets(context.Background())
-	if err != nil || len(targets) != 3 {
+	if err != nil || len(targets) != 4 {
 		t.Fatalf("duplicate demo targets after restart: %d %v", len(targets), err)
 	}
+}
+
+func TestDemoSwitchesOneTargetThroughFailureAndRecovery(t *testing.T) {
+	store := testStore(t)
+	address, cleanup, err := startDemo(store, "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	base := "http://" + address
+	client := &http.Client{Timeout: time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	call := func(method, path, origin string, status int) {
+		t.Helper()
+		r, err := http.NewRequest(method, base+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header.Set("Origin", origin)
+		resp, err := client.Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != status {
+			t.Fatalf("%s %s: got %d, want %d", method, path, resp.StatusCode, status)
+		}
+	}
+	call("GET", "/demo", "", 200)
+	call("GET", "/switch", "", 200)
+	call("GET", "/demo/fail", "", 405)
+	call("POST", "/demo/fail", "", 403)
+	call("POST", "/demo/fail", "https://example.invalid", 403)
+	call("GET", "/switch", "", 200)
+	call("POST", "/demo/fail", base, 303)
+	call("GET", "/switch", "", 503)
+	call("GET", "/ok", "", 200)
+	call("POST", "/demo/recover", base, 303)
+	call("GET", "/switch", "", 200)
 }
 
 func TestServeRejectsNonLoopbackDemoAddress(t *testing.T) {

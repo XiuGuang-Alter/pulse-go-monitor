@@ -72,13 +72,15 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 		return 1
 	}
 	defer scheduler.Stop()
+	var demoURL string
 	if *demo {
-		_, cleanup, err := startDemo(store, *demoAddress)
+		boundAddress, cleanup, err := startDemo(store, *demoAddress)
 		if err != nil {
 			fmt.Fprintln(errOut, "启动演示失败：", err)
 			return 1
 		}
 		defer cleanup()
+		demoURL = "http://" + boundAddress + "/demo"
 	}
 	server := &http.Server{Handler: NewApp(store, scheduler).Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	if notifier != nil {
@@ -89,7 +91,11 @@ func runServe(ctx context.Context, args []string, out, errOut io.Writer) int {
 	scheduler.Start()
 	completed := make(chan error, 1)
 	go func() { completed <- server.Serve(listener) }()
-	fmt.Fprintf(out, "监测控制台：http://%s\n数据库：%s\n按 Ctrl+C 停止服务。\n", listener.Addr().String(), *path)
+	fmt.Fprintf(out, "监测控制台：http://%s\n", listener.Addr().String())
+	if demoURL != "" {
+		fmt.Fprintln(out, "故障演示控制页："+demoURL)
+	}
+	fmt.Fprintf(out, "数据库：%s\n按 Ctrl+C 停止服务。\n", *path)
 	select {
 	case <-ctx.Done():
 	case err = <-completed:
@@ -126,6 +132,7 @@ func demoHandler() http.Handler {
 		}
 	})
 	mux.HandleFunc("/redirect", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/ok", 302) })
+	registerDemoScenario(mux)
 	return mux
 }
 func loopbackAddress(address string) bool {
@@ -147,7 +154,12 @@ func startDemo(store *Store, address string) (string, func(), error) {
 		cleanup()
 		return "", nil, err
 	}
-	for _, item := range []struct{ name, path string }{{"演示 · 正常接口", "/ok"}, {"演示 · 服务端错误", "/error"}, {"演示 · 超时接口", "/slow"}} {
+	for _, item := range []struct{ name, path string }{
+		{"演示 · 故障与恢复", "/switch"},
+		{"演示 · 正常接口", "/ok"},
+		{"演示 · 服务端错误", "/error"},
+		{"演示 · 超时接口", "/slow"},
+	} {
 		url := "http://" + address + item.path
 		found := false
 		for _, target := range existing {

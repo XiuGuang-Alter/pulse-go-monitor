@@ -2,23 +2,31 @@
 
 [![CI](https://github.com/XiuGuang-Alter/pulse-go-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/XiuGuang-Alter/pulse-go-monitor/actions/workflows/ci.yml)
 
-一个本机运行的 Go 监测工具：定时访问多个 HTTP/HTTPS 目标，把状态、耗时和历史保存到 SQLite，再通过内嵌网页查看。运行不需要 Node 或外置数据库。
+Pulse 用 Go 定时检查网站和 API，把结果写入 SQLite。连续两次失败后记录故障，首次成功后记录恢复。故障列表显示估算时长，点开详情可查看每次检查的状态码和失败原因。
 
-v1.2在原有监测功能上增加：
+**[下载最新 Windows 版](https://github.com/XiuGuang-Alter/pulse-go-monitor/releases/latest)** · [快速开始](#快速开始) · [故障与恢复演示](#故障与恢复演示) · [架构与测试](#架构与资料)
 
-- 监测器自身健康与结果新鲜度，区分工具退化、目标失败和旧结果。
-- URL敏感参数安全展示、结构化错误分类与表单字段/规则定位；实际请求保持原始配置。
-- 独立备份/校验、新路径恢复、配置预检与导入导出、UTC范围历史导出，以及实际保留范围说明。
-
-v1.2 的长期运行与性能证据见[24小时实跑](docs/performance/v1.2/soak/README.md)、[同机性能复核](docs/performance/v1.2/full/README.md)及[验收记录](docs/verification/v1.2/acceptance.md)。
-
-![控制台示例（隔离测试数据）](docs/screenshots/browser-acceptance/桌面总览.png)
+![故障详情。两次 HTTP 503 后首次 HTTP 200，故障已恢复。](docs/screenshots/故障与恢复.png)
 
 ## 快速开始
 
-Windows用户从 [Releases](https://github.com/XiuGuang-Alter/pulse-go-monitor/releases) 下载对应版本的 `pulse-v<版本>-windows-amd64.zip`，解压到可写目录，双击 `启动演示.cmd`，打开 http://127.0.0.1:8080 。正常、500及超时演示接口在8091端口；关闭终端前优先按Ctrl+C正常退出。
+1. 下载 Windows ZIP，核对校验值并解压到可写目录。 [下载包使用说明](docs/下载包使用说明.md)
+2. 双击 `启动演示.cmd`，启用本机示例目标。使用自己的网址时，双击 `启动监测.cmd`。
+3. 打开 [本机控制台](http://127.0.0.1:8080)，查看目标、历史与故障过程。退出时在运行窗口按 Ctrl+C。
 
-使用自己的目标双击 `启动监测.cmd`。默认数据库 `data/monitor.db`；演示脚本单独使用 `data/demo.db`。数据位于启动工作目录，启动脚本会先进入程序目录。下载校验及运行说明见 [下载包使用说明](docs/下载包使用说明.md)。
+演示脚本使用 `data/demo.db`，监测脚本使用 `data/monitor.db`。Windows 下载包解压即可运行。
+
+## 故障与恢复演示
+
+用当前源码构建程序后，双击 `启动演示.cmd`。终端会显示监测控制台和演示控制页的地址。默认演示控制页为 [127.0.0.1:8091/demo](http://127.0.0.1:8091/demo)。
+
+1. 在演示控制页点「模拟故障」。同一个目标「演示 · 故障与恢复」开始返回 HTTP 503。
+2. 等两次检查失败，在监测控制台打开「故障过程」，找到本次记录。
+3. 回到演示控制页点「恢复服务」。等下一次成功，在故障过程点「查看检查」，查看前两次 503 和首次成功的 200。
+
+演示目标每 10 秒检查一次。也可以在目标行点「立即检查」缩短等待。图中数据由本地演示生成。
+
+## 命令行启动
 
 ```powershell
 .\go-monitor.exe serve
@@ -114,6 +122,8 @@ SQLite使用纯Go驱动，开启外键、WAL和busy_timeout，单连接，网络
 
 - [架构与取舍](docs/架构.md)
 - [测试与验证](docs/测试与验证.md)
+- [v1.7 Windows 和 Ubuntu 验证](https://github.com/XiuGuang-Alter/pulse-go-monitor/actions/runs/44490787136)
+- [v1.2 24 小时本地实跑](docs/performance/v1.2/soak/README.md)与[同机性能复核](docs/performance/v1.2/full/README.md)。实跑使用 100 个本地模拟目标，累计写入 842,460 次检查结果。
 - [性能实验与原始数据](docs/performance/README.md)
 - [版本记录](CHANGELOG.md)
 - [v1.2验收证据与验证边界](docs/verification/v1.2/acceptance.md)
