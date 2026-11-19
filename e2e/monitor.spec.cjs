@@ -15,8 +15,15 @@ async function stop(){await stopChild(app?.child);}
 test.beforeEach(async({page})=>{
  directory=await fs.mkdtemp(path.join(os.tmpdir(),'pulse-e2e-'));db=path.join(directory,'monitor.db');
  switchingFailure=true;
+ let incidentRequests = 0;
  upstream=http.createServer((req,res)=>{
-  if(req.url==='/slow'){const timer=setTimeout(()=>res.end('slow'),2000);res.on('close',()=>clearTimeout(timer));}
+  if(req.url==='/incident-sequence'){
+   incidentRequests++;
+   if(incidentRequests===1) res.writeHead(503).end();
+   else if(incidentRequests>2) res.end('recovered');
+   // On the second check, wait for Pulse to cancel the request at its deadline.
+  }
+  else if(req.url==='/slow'){const timer=setTimeout(()=>res.end('slow'),2000);res.on('close',()=>clearTimeout(timer));}
   else if(req.url==='/error')res.writeHead(500).end('error');
   else if(req.url==='/switch')res.writeHead(switchingFailure?503:200).end('synthetic');
   else if(req.url==='/json')res.end('{"code":1}');
@@ -28,6 +35,150 @@ test.beforeEach(async({page})=>{
 });
 test.afterEach(async()=>{await stop();if(upstream){await new Promise(resolve=>upstream.close(resolve));}if(directory)await fs.rm(directory,{recursive:true,force:true});});
 const row=(page,name)=>page.locator('#targets tr').filter({hasText:name});
+
+test('故障详情依次展示真实的 503、超时和恢复，返回后保留键盘焦点', async ({page, request}) => {
+ const response = await request.post(base + '/api/targets', {data: {
+  name: '详情验收目标', url: upstreamURL + '/incident-sequence', enabled: true,
+  interval_seconds: 3600, timeout_seconds: 1,
+ }});
+ expect(response.ok()).toBe(true);
+ const target = await response.json();
+ const endpoint = base + '/api/targets/' + target.id;
+ const waitForChecks = async (samples) => {
+  await expect.poll(async () => {
+   const [current] = await list(request);
+   return current.running ? -1 : current.stats.samples;
+  }).toBe(samples);
+ };
+ await waitForChecks(1);
+ for (const total of [2, 3]) {
+  expect((await request.post(endpoint + '/check')).status()).toBe(202);
+  await waitForChecks(total);
+ }
+ await refresh(page);
+ await page.setViewportSize({width: 390, height: 844});
+ await page.locator('#incidents-open').click();
+ await page.locator('#incident-target').selectOption(String(target.id));
+ await page.locator('#incident-status').selectOption('recovered');
+ const open = page.locator('#incident-rows').getByRole('button', {name: '查看检查'});
+ await expect(open).toBeVisible();
+ await open.focus();
+ await page.keyboard.press('Enter');
+ const detail = page.locator('#incident-detail-dialog');
+ await expect(detail).toContainText(/共\s*3\s*次检查.*仍可查看\s*3\s*次.*已清理\s*0\s*次/);
+ const rows = detail.locator('tbody tr');
+ await expect(rows).toHaveCount(3);
+ await expect(rows.nth(0)).toContainText('503');
+ await expect(rows.nth(1)).toContainText('未收到状态码');
+ await expect(rows.nth(1)).toContainText('超时');
+ await expect(rows.nth(2)).toContainText('200');
+ await expect(rows.nth(2)).toContainText('通过');
+ expect(await detail.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+ await page.keyboard.press('Escape');
+ await expect(detail).not.toBeVisible();
+ await expect(open).toBeFocused();
+ await expect(page.locator('#incident-target')).toHaveValue(String(target.id));
+ await expect(page.locator('#incident-status')).toHaveValue('recovered');
+});
+
+test('故障详情区分清理与分页，保留列表位置，切换后忽略旧请求', async ({page, request}) => {
+ await add(page, '明细分页目标', '/ok', false);
+ const [target] = await list(request);
+ await stop();
+ const {DatabaseSync} = require('node:sqlite');
+ const sql = new DatabaseSync(db);
+ const now = Date.now();
+ try {
+  const incident = sql.prepare(`INSERT INTO incidents(target_id,target_name,config_version,session,status,
+   started_at,confirmed_at,last_failure_at,first_failure_check_id,last_failure_check_id,fault_event_id,
+   error_category,failure_count,closed_at,interrupt_reason)
+   VALUES (?, ?, 1, 'fixture', 'interrupted', ?, ?, ?, ?, ?, 1, 'http_5xx', ?, ?, 'paused')`);
+  const check = sql.prepare(`INSERT INTO checks(id,target_id,input_url,final_url,status_code,duration_ms,
+   kind,detail,checked_at,config_version,error_category)
+   VALUES (?, ?, '', '', 503, 1, 'http_error', 'legacy-private-value', ?, 1, 'http_5xx')`);
+  // The first two samples have been removed; IDs 3 through 105 are retained.
+  incident.run(target.id, '长故障', now-106000, now-105000, now-2000, 1, 105, 105, now);
+  for (let id = 3; id <= 105; id++) check.run(id, target.id, now - (107-id)*1000);
+  // Only incident summaries remain for these short outages.
+  for (let i = 0; i < 50; i++) {
+   const first = 106 + 2*i;
+   incident.run(target.id, '已清理故障 ' + i, now-2000, now-1000, now-1000, first, first+1, 2, now);
+  }
+ } finally {
+  sql.close();
+ }
+ app = await launch();
+ base = app.url;
+ await page.goto(base);
+ await expect(row(page, target.name)).toBeVisible();
+ await page.locator('#incidents-open').click();
+ await page.locator('#incident-target').selectOption(String(target.id));
+ await page.locator('#incident-status').selectOption('interrupted');
+ await page.locator('#incident-more').click();
+ const listRows = page.locator('#incident-rows tr');
+ await expect(listRows).toHaveCount(51);
+ const long = listRows.filter({hasText: '长故障'}).getByRole('button', {name:'查看检查'});
+ await long.scrollIntoViewIfNeeded();
+ const listScroll = page.locator('#incidents-dialog .history-scroll');
+ const position = await listScroll.evaluate(el => el.scrollTop);
+ const detail = page.locator('#incident-detail-dialog');
+ const rows = detail.locator('tbody tr');
+ const more = detail.getByRole('button', {name:'查看更多', exact:true});
+ const back = detail.getByRole('button', {name:'返回故障过程', exact:true});
+ const counts = /共\s*105\s*次检查.*仍可查看\s*103\s*次.*已清理\s*2\s*次/;
+ let requests = 0;
+ page.on('request', req => { if (/\/api\/incidents\/\d+\/checks$/.test(req.url())) requests++; });
+ await long.click();
+ await expect(detail).toContainText(counts);
+ await expect(rows).toHaveCount(50);
+ const firstPageRequests = requests;
+ await more.click();
+ await expect(rows).toHaveCount(100);
+ await more.click();
+ await expect(rows).toHaveCount(103);
+ await expect(detail).toContainText(counts);
+ await expect(detail).not.toContainText('legacy-private-value');
+ expect(requests).toBe(firstPageRequests);
+ await back.click();
+ await expect(long).toBeFocused();
+ await expect(listRows).toHaveCount(51);
+ expect(await listScroll.evaluate(el => el.scrollTop)).toBe(position);
+
+ let release;
+ const held = new Promise(resolve => { release = resolve; });
+ const oldPath = '**/api/incidents/1/checks';
+ let markReady;
+ const ready = new Promise(resolve => { markReady = resolve; });
+ let finish;
+ const finished = new Promise(resolve => { finish = resolve; });
+ await page.route(oldPath, async route => {
+  const response = await route.fetch();
+  markReady(response.status());
+  await held;
+  try {
+   await route.fulfill({response});
+  } catch {
+   // Closing the dialog may have already aborted this response.
+  } finally { finish(); }
+ });
+ try {
+  await long.click();
+  expect(await ready).toBe(200);
+  await back.click();
+  await listRows.first().getByRole('button', {name:'查看检查'}).click();
+  await expect(detail).toContainText(/共\s*2\s*次检查.*仍可查看\s*0\s*次.*已清理\s*2\s*次/);
+ } finally {
+  release();
+ }
+ await finished;
+ await expect(detail).toContainText('已清理故障 49');
+ await expect(rows).toHaveCount(0);
+ await page.unroute(oldPath);
+ expect((await request.delete(base + '/api/targets/' + target.id)).ok()).toBe(true);
+ await detail.getByRole('button', {name:'刷新', exact:true}).click();
+ await expect(detail).toContainText('故障记录已不存在');
+ await expect(rows).toHaveCount(0);
+});
 
 test('故障过程记录首次失败、恢复、分页与筛选', async ({page, request}) => {
  await add(page, '过程验收目标', '/switch');

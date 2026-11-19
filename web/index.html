@@ -319,6 +319,25 @@
       <p id="incident-note" class="muted small" role="status"></p>
       <div class="dialog-actions"><button id="incident-more" class="button" disabled>加载更早记录</button><button class="button primary" data-close="incidents-dialog">完成</button></div>
     </dialog>
+    <dialog id="incident-detail-dialog" class="history-dialog" aria-labelledby="incident-detail-title">
+      <div class="dialog-heading">
+        <h2 id="incident-detail-title" tabindex="-1" autofocus>故障详情</h2>
+        <button id="incident-detail-refresh" class="button subtle">刷新</button>
+      </div>
+      <p id="incident-detail-target" class="url-text"></p>
+      <p id="incident-detail-times" class="muted"></p>
+      <p id="incident-detail-count" role="status"></p>
+      <p id="incident-detail-error" class="notice error" role="alert" hidden></p>
+      <div id="incident-detail-table" class="history-scroll" tabindex="0" role="region" aria-label="故障检查明细" hidden>
+        <table><thead><tr><th>检查时间</th><th>结果</th><th>HTTP 状态码</th><th>错误分类与说明</th></tr></thead>
+          <tbody id="incident-detail-rows"></tbody>
+        </table>
+      </div>
+      <div class="dialog-actions">
+        <button id="incident-detail-more" class="button" hidden>查看更多</button>
+        <button class="button primary" data-close="incident-detail-dialog">返回故障过程</button>
+      </div>
+    </dialog>
     <dialog id="delete-dialog">
       <div class="dialog-heading">
         <h2>删除监测目标？</h2>

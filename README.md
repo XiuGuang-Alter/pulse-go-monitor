@@ -52,6 +52,7 @@ v1.5 使用 schema5，v1.6 启动时将 schema1–5 升级至 schema6。停止�
 - 原响应耗时到最终响应头或请求失败；新增完整耗时包含正文和断言。旧历史没有完整耗时和配置版本，显示为空。CLI默认行为及退出码保持：0通过、1检查失败、2参数错误。
 - 独立查看最近30个UTC自然日汇总；无样本不补成功率，当天标记进行中。汇总按当次规则判定，跨规则时期不能直接等价比较。
 - 在「故障过程」按目标和状态查看首次失败、确认、最后失败和恢复。恢复时长估算到首次成功，进行中只计到最后一次失败。暂停、编辑或重启会将未恢复的过程标记为监测中断。每目标保留最近1000条已结束记录且最长30天，进行中单独保留。旧提醒不会补造故障过程。
+- 点一条故障的「查看检查」，可按发生顺序查看仍保留的检查、HTTP 状态码和失败原因。页首分别显示检查总数、仍可查看数和已清理数。已恢复的故障计入首次成功检查；进行中或中断的故障只计算失败检查。详情沿用 v1.6 的数据库格式。
 
 ![业务断言失败及UTC日汇总（隔离测试数据）](docs/screenshots/v1.1/daily-desktop.png)
 
@@ -91,6 +92,7 @@ Linux使用不带.cmd后缀的npm/npx。CI在Windows和Ubuntu执行检查；Ubun
 | GET | `/api/targets/{id}/daily?days=30` | 最近1–30个UTC日期桶 |
 | GET | `/api/events?target_id=1&limit=50&before_id=123` | 提醒事件和桌面投递状态 |
 | GET | `/api/incidents?target_id=1&status=recovered&limit=50&before_id=123` | 故障过程，返回 `items` 与服务端 `observed_at` |
+| GET | `/api/incidents/{id}/checks` | 单次故障的检查快照，含总数 `total`、可查看数 `retained`、已清理数 `cleared` 和按写入顺序排列的 `items` |
 
 创建/更新使用 `application/json`，正文最多16384字节，拒绝未知字段：
 

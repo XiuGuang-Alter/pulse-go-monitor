@@ -70,7 +70,7 @@ func decodeInput(w http.ResponseWriter, r *http.Request) (TargetInput, error) {
 	}
 	return in, nil
 }
-func targetID(r *http.Request) (int64, error) {
+func pathID(r *http.Request) (int64, error) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
 		return 0, ErrValidation
@@ -82,6 +82,7 @@ func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/events", a.alertEvents)
 	mux.HandleFunc("GET /api/incidents", a.incidentHistory)
+	mux.HandleFunc("GET /api/incidents/{id}/checks", a.incidentChecks)
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), storeOperationTimeout)
 		defer cancel()
@@ -129,7 +130,7 @@ func (a *App) Handler() http.Handler {
 		a.scheduler.Notify()
 	})
 	mux.HandleFunc("PUT /api/targets/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id, err := targetID(r)
+		id, err := pathID(r)
 		if err != nil {
 			apiError(w, err)
 			return
@@ -148,7 +149,7 @@ func (a *App) Handler() http.Handler {
 		a.scheduler.Notify()
 	})
 	mux.HandleFunc("DELETE /api/targets/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id, err := targetID(r)
+		id, err := pathID(r)
 		if err != nil {
 			apiError(w, err)
 			return
@@ -161,7 +162,7 @@ func (a *App) Handler() http.Handler {
 		a.scheduler.Notify()
 	})
 	mux.HandleFunc("POST /api/targets/{id}/check", func(w http.ResponseWriter, r *http.Request) {
-		id, err := targetID(r)
+		id, err := pathID(r)
 		if err != nil {
 			apiError(w, err)
 			return
@@ -173,7 +174,7 @@ func (a *App) Handler() http.Handler {
 		jsonResponse(w, 202, map[string]string{"message": "检查已开始"})
 	})
 	mux.HandleFunc("GET /api/targets/{id}/checks", func(w http.ResponseWriter, r *http.Request) {
-		id, err := targetID(r)
+		id, err := pathID(r)
 		if err != nil {
 			apiError(w, err)
 			return
@@ -219,7 +220,7 @@ func (a *App) Handler() http.Handler {
 		jsonResponse(w, 200, map[string]any{"retention": retention, "items": records, "next_before_id": next, "error_categories": categories, "category_scope": "retained_checks"})
 	})
 	mux.HandleFunc("GET /api/targets/{id}/daily", func(w http.ResponseWriter, r *http.Request) {
-		id, err := targetID(r)
+		id, err := pathID(r)
 		if err != nil {
 			apiError(w, err)
 			return

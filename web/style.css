@@ -1049,5 +1049,13 @@ input[type="checkbox"] {
 .incident-controls select { width:100%; }
 .history-scroll .incident-table { min-width:740px; }
 .incident-table td small { display:block; margin-top:4px; color:var(--muted); }
+.incident-inspect { margin-top:5px; padding:5px 0; color:var(--teal); font-size:12px; }
+#incident-detail-times { line-height:1.6; font-size:12px; }
+#incident-detail-count { font-size:13px; }
+#incident-detail-table .history-detail { line-height:1.6; }
+@media (max-width: 600px) {
+  #incident-detail-table table { min-width:0; }
+  #incident-detail-table td, #incident-detail-table th { padding:8px 5px; }
+}
 .incident-scroll-hint { display:none; }
 @media (max-width: 800px) { .incident-scroll-hint { display:block; } }
